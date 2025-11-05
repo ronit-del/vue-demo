@@ -108,32 +108,59 @@
 
 <style scoped>
     .verify-container {
-        width: 480px;
-        margin: auto;
-        padding: 20px;
-        box-sizing: border-box;
+        width: 100%;
+        max-width: 480px;
+        margin: 2rem auto;
+        padding: 2.5rem;
+        background: var(--bg-primary);
+        box-shadow: var(--shadow-xl);
+        border-radius: 16px;
+        border: 1px solid var(--border-color);
     }
 
     form {
         width: 100%;
-        margin: auto;
         text-align: center;
     }
 
     .form-group {
-        margin-bottom: 10px;
+        margin-bottom: 1.5rem;
     }
 
     .form-group label {
-        font-size: 16px !important;
-        font-weight: 600 !important;
-        color: #555 !important;
-        margin-bottom: 16px !important;
+        display: block;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+
+    .btn-block {
+        width: 100%;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
     }
 
     p {
         text-align: center;
-        font-size: large;
-        font-weight: bold;
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .verify-container {
+            margin: 1rem auto;
+            padding: 2rem 1.5rem;
+        }
+
+        .form-group label {
+            font-size: 0.875rem;
+        }
     }
 </style>

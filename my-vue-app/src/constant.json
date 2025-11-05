@@ -1,142 +1,331 @@
 [
   {
-    "id": "A1B2",
+    "product_code": "A1B2",
     "image": "product-category/electronics/electronics-1.jpg",
     "name": "Smartphone XYZ",
     "price": "699",
     "description": "A powerful smartphone with 128GB storage and a 12MP camera."
   },
   {
-    "id": "C3D4",
+    "product_code": "C3D4",
     "image": "product-category/electronics/electronics-2.jpg",
     "name": "Wireless Headphones",
     "price": "129",
     "description": "Noise-cancelling over-ear headphones with a 20-hour battery life."
   },
   {
-    "id": "E5F6",
+    "product_code": "E5F6",
     "image": "product-category/electronics/electronics-3.jpg",
     "name": "4K Smart TV",
     "price": "999",
     "description": "A 55-inch 4K UHD Smart TV with built-in streaming apps."
   },
   {
-    "id": "G7H8",
+    "product_code": "G7H8",
     "image": "product-category/electronics/electronics-4.jpg",
     "name": "Laptop ABC",
     "price": "899",
     "description": "A 15-inch laptop with an Intel i7 processor and 16GB RAM."
   },
   {
-    "id": "I9J0",
+    "product_code": "I9J0",
     "image": "product-category/electronics/electronics-5.jpg",
     "name": "Bluetooth Speaker",
     "price": "59",
     "description": "Portable Bluetooth speaker with 12-hour playtime and waterproof design."
   },
   {
-    "id": "K1L2",
+    "product_code": "K1L2",
     "image": "product-category/electronics/electronics-6.jpg",
     "name": "Smartwatch V2",
     "price": "199",
     "description": "Track your fitness and notifications with this sleek smartwatch."
   },
   {
-    "id": "M3N4",
+    "product_code": "M3N4",
     "image": "product-category/electronics/electronics-7.jpg",
     "name": "Gaming Console",
     "price": "499",
     "description": "Next-gen gaming console with 4K support and a wide variety of games."
   },
   {
-    "id": "O5P6",
+    "product_code": "O5P6",
     "image": "product-category/electronics/electronics-8.jpg",
     "name": "Digital Camera",
     "price": "749",
     "description": "A DSLR camera with 24.2 MP resolution and advanced autofocus."
   },
   {
-    "id": "Q7R8",
+    "product_code": "Q7R8",
     "image": "product-category/electronics/electronics-9.jpg",
     "name": "Smart Home Hub",
     "price": "149",
     "description": "Control all your smart devices with this intuitive home automation hub."
   },
   {
-    "id": "S9T0",
+    "product_code": "S9T0",
     "image": "product-category/electronics/electronics-10.jpg",
     "name": "Electric Toothbrush",
     "price": "99",
     "description": "Advanced electric toothbrush with multiple cleaning modes."
   },
   {
-    "id": "U1V2",
+    "product_code": "U1V2",
     "image": "product-category/clothes/clothes-1.jpg",
     "name": "Men's Shirt",
     "price": "19.99",
     "description": "A comfortable cotton t-shirt available in multiple colors."
   },
   {
-    "id": "W3X4",
+    "product_code": "W3X4",
     "image": "product-category/clothes/clothes-2.jpg",
     "name": "Women's Jeans",
     "price": "49.99",
     "description": "Slim-fit denim jeans designed for a perfect fit and comfort."
   },
   {
-    "id": "Y5Z6",
+    "product_code": "Y5Z6",
     "image": "product-category/clothes/clothes-3.jpg",
     "name": "Cotton Jacket",
     "price": "79.99",
     "description": "Stylish jacket with a soft cotton fabric for all-season wear."
   },
   {
-    "id": "A7B8",
+    "product_code": "A7B8",
     "image": "product-category/clothes/clothes-4.jpg",
     "name": "Sweater Dress",
     "price": "59.99",
     "description": "Chic sweater dress perfect for layering during the colder months."
   },
   {
-    "id": "C9D0",
+    "product_code": "C9D0",
     "image": "product-category/clothes/clothes-5.jpg",
     "name": "Sports Shorts",
     "price": "24.99",
     "description": "Breathable, moisture-wicking shorts ideal for workouts."
   },
   {
-    "id": "E1F2",
+    "product_code": "E1F2",
     "image": "product-category/clothes/clothes-6.jpg",
     "name": "Leather Jacket",
     "price": "129.99",
     "description": "A classic, high-quality leather jacket that never goes out of style."
   },
   {
-    "id": "G3H4",
+    "product_code": "G3H4",
     "image": "product-category/clothes/clothes-7.jpg",
     "name": "Maxi Skirt",
     "price": "39.99",
     "description": "Flowy and comfortable maxi skirt perfect for casual outings."
   },
   {
-    "id": "I5J6",
+    "product_code": "I5J6",
     "image": "product-category/clothes/clothes-8.jpg",
     "name": "Raincoat",
     "price": "69.99",
     "description": "Waterproof raincoat with a stylish hood and adjustable cuffs."
   },
   {
-    "id": "K7L8",
+    "product_code": "K7L8",
     "image": "product-category/clothes/clothes-9.jpg",
     "name": "Chinos Pants",
     "price": "44.99",
     "description": "Casual chinos with a slim fit and soft fabric for everyday wear."
   },
   {
-    "id": "M9N0",
+    "product_code": "M9N0",
     "image": "product-category/clothes/clothes-10.jpg",
     "name": "Boots",
     "price": "89.99",
     "description": "Durable and stylish boots with a comfortable sole for outdoor adventures."
+  },
+  {
+    "product_code": "O1P2",
+    "image": "product-category/home_appliances/home appliance-1.jpg",
+    "name": "Washing Machine",
+    "price": "599",
+    "description": "Energy-efficient front-loading washing machine with multiple wash programs."
+  },
+  {
+    "product_code": "Q3R4",
+    "image": "product-category/home_appliances/home appliance-2.jpg",
+    "name": "Refrigerator",
+    "price": "899",
+    "description": "Large capacity refrigerator with advanced cooling technology and energy star rating."
+  },
+  {
+    "product_code": "S5T6",
+    "image": "product-category/home_appliances/home appliance-3.jpg",
+    "name": "Microwave Oven",
+    "price": "249",
+    "description": "Digital microwave oven with multiple cooking modes and auto-cook features."
+  },
+  {
+    "product_code": "U7V8",
+    "image": "product-category/home_appliances/home appliance-4.jpg",
+    "name": "Dishwasher",
+    "price": "699",
+    "description": "Quiet dishwasher with multiple wash cycles and energy-efficient design."
+  },
+  {
+    "product_code": "W9X0",
+    "image": "product-category/home_appliances/home appliance-5.jpg",
+    "name": "Air Conditioner",
+    "price": "799",
+    "description": "Split air conditioner with inverter technology for efficient cooling."
+  },
+  {
+    "product_code": "Y1Z2",
+    "image": "product-category/home_appliances/home appliance-6.jpg",
+    "name": "Coffee Maker",
+    "price": "129",
+    "description": "Programmable coffee maker with thermal carafe and auto-shutoff feature."
+  },
+  {
+    "product_code": "A3B4",
+    "image": "product-category/home_appliances/home appliance-7.jpg",
+    "name": "Vacuum Cleaner",
+    "price": "199",
+    "description": "Powerful cordless vacuum cleaner with multiple attachments and HEPA filter."
+  },
+  {
+    "product_code": "C5D6",
+    "image": "product-category/home_appliances/home appliance-8.jpg",
+    "name": "Electric Kettle",
+    "price": "49",
+    "description": "Stainless steel electric kettle with auto-shutoff and boil-dry protection."
+  },
+  {
+    "product_code": "E7F8",
+    "image": "product-category/home_appliances/home appliance-9.jpg",
+    "name": "Toaster Oven",
+    "price": "89",
+    "description": "Compact toaster oven with multiple cooking functions and timer."
+  },
+  {
+    "product_code": "G9H0",
+    "image": "product-category/home_appliances/home appliance-10.jpg",
+    "name": "Blender",
+    "price": "79",
+    "description": "High-performance blender with multiple speed settings and glass pitcher."
+  },
+  {
+    "product_code": "B1C2",
+    "image": "product-category/beuty.png",
+    "name": "Face Moisturizer",
+    "price": "24.99",
+    "description": "Hydrating face moisturizer with SPF 30 for daily protection and smooth skin."
+  },
+  {
+    "product_code": "D3E4",
+    "image": "product-category/beuty.png",
+    "name": "Lipstick Set",
+    "price": "39.99",
+    "description": "Premium lipstick set with 6 vibrant shades for every occasion."
+  },
+  {
+    "product_code": "F5G6",
+    "image": "product-category/beuty.png",
+    "name": "Eye Shadow Palette",
+    "price": "29.99",
+    "description": "Professional eye shadow palette with 12 blendable matte and shimmer shades."
+  },
+  {
+    "product_code": "H7I8",
+    "image": "product-category/beuty.png",
+    "name": "Mascara",
+    "price": "19.99",
+    "description": "Volumizing mascara that lengthens and curls lashes for dramatic look."
+  },
+  {
+    "product_code": "J9K0",
+    "image": "product-category/beuty.png",
+    "name": "Foundation",
+    "price": "34.99",
+    "description": "Full coverage foundation with natural finish available in multiple shades."
+  },
+  {
+    "product_code": "L1M2",
+    "image": "product-category/beuty.png",
+    "name": "Face Serum",
+    "price": "49.99",
+    "description": "Anti-aging face serum with vitamin C and hyaluronic acid for glowing skin."
+  },
+  {
+    "product_code": "N3O4",
+    "image": "product-category/beuty.png",
+    "name": "Makeup Brushes Set",
+    "price": "59.99",
+    "description": "Professional makeup brush set with 12 synthetic brushes for flawless application."
+  },
+  {
+    "product_code": "P5Q6",
+    "image": "product-category/beuty.png",
+    "name": "Nail Polish Collection",
+    "price": "14.99",
+    "description": "Long-lasting nail polish collection with 8 trendy colors."
+  },
+  {
+    "product_code": "R7S8",
+    "image": "product-category/beuty.png",
+    "name": "Cleansing Face Wash",
+    "price": "18.99",
+    "description": "Gentle cleansing face wash that removes makeup and impurities without drying."
+  },
+  {
+    "product_code": "T9U0",
+    "image": "product-category/beuty.png",
+    "name": "Perfume",
+    "price": "79.99",
+    "description": "Luxury perfume with floral and woody notes for long-lasting fragrance."
+  },
+  {
+    "product_code": "V1W2",
+    "image": "product-category/electronics/electronics-1.jpg",
+    "name": "Fitness Tracker",
+    "price": "89",
+    "description": "Advanced fitness tracker with heart rate monitoring and sleep tracking."
+  },
+  {
+    "product_code": "X3Y4",
+    "image": "product-category/electronics/electronics-2.jpg",
+    "name": "Wireless Earbuds",
+    "price": "79",
+    "description": "True wireless earbuds with noise cancellation and 24-hour battery life."
+  },
+  {
+    "product_code": "Z5A6",
+    "image": "product-category/clothes/clothes-1.jpg",
+    "name": "Athletic Shoes",
+    "price": "99.99",
+    "description": "Comfortable athletic shoes with cushioned sole for running and workouts."
+  },
+  {
+    "product_code": "B7C8",
+    "image": "product-category/clothes/clothes-2.jpg",
+    "name": "Yoga Pants",
+    "price": "39.99",
+    "description": "Stretchy yoga pants with moisture-wicking fabric for active wear."
+  },
+  {
+    "product_code": "D9E0",
+    "image": "product-category/clothes/clothes-3.jpg",
+    "name": "Hoodie",
+    "price": "49.99",
+    "description": "Cozy cotton hoodie perfect for casual wear and lounging."
+  },
+  {
+    "product_code": "F1G2",
+    "image": "product-category/home_appliances/home appliance-1.jpg",
+    "name": "Air Fryer",
+    "price": "129",
+    "description": "Digital air fryer with large capacity and multiple cooking presets."
+  },
+  {
+    "product_code": "H3I4",
+    "image": "product-category/home_appliances/home appliance-2.jpg",
+    "name": "Rice Cooker",
+    "price": "89",
+    "description": "Automatic rice cooker with keep-warm function and multiple cooking modes."
   }
 ]

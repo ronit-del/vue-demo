@@ -17,7 +17,7 @@ class DatabaseManager {
 
       // Create connection pool
       let connectionConfig;
-      
+
       if (process.env.NODE_ENV === 'development' && process.env.PG_PUBLIC_URL) {
         // Development: Use public URL to connect from outside Railway
         connectionConfig = {
@@ -58,10 +58,10 @@ class DatabaseManager {
 
       // Setup and validate database schema
       await this.setupDatabase();
-      
+
       this.connected = true;
       console.log('🚀 Database fully initialized and ready');
-      
+
       return { connected: true, mode: 'active' };
 
     } catch (error) {
@@ -75,7 +75,7 @@ class DatabaseManager {
   // Complete database setup and validation
   async setupDatabase() {
     console.log('🔄 Setting up database schema...');
-    
+
     // Run all setup operations in sequence
     await this.enableExtensions();
     await this.createTables();
@@ -84,7 +84,7 @@ class DatabaseManager {
     // await this.createConstraints();
     await this.createTriggers();
     await this.insertDefaultData();
-    
+
     console.log('✅ Database schema setup complete');
   }
 
@@ -128,7 +128,9 @@ class DatabaseManager {
       // Products table
       `CREATE TABLE IF NOT EXISTS products (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        product_code VARCHAR(100) UNIQUE NOT NULL, -- Product code (e.g., "A1B2")
         name VARCHAR(255) NOT NULL, -- Product name (e.g., "Smartphone")
+        image TEXT, -- Product image URL
         description TEXT, -- Product description
         price DECIMAL(10, 2) NOT NULL, -- Price of the product
         stock_quantity INT DEFAULT 0, -- Quantity available in stock
@@ -136,15 +138,27 @@ class DatabaseManager {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
 
-      // Orders table
+      // Order detail table (created second, references orders)
+      `CREATE TABLE IF NOT EXISTS order_details (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        product_id VARCHAR(100) NOT NULL, -- Reference to the product
+        base_price DECIMAL(10, 2) NOT NULL, -- Base price of the product at the time of purchase
+        quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0), -- Quantity of the product
+        total_amount DECIMAL(10, 2) NOT NULL, -- Total amount for this line item (base_price * quantity)
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Creation timestamp
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Update timestamp
+      )`,
+
+      // Order table (created first as parent table)
       `CREATE TABLE IF NOT EXISTS orders (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE, -- Reference to the user who placed the order
-        product_id VARCHAR(50), -- Reference to the product
-        price DECIMAL(10, 2) NOT NULL, -- Price of the product at the time of purchase
-        quantity INT NOT NULL, -- Quantity of the product in the order
-        total_amount DECIMAL(10, 2) NOT NULL, -- Total price of the order
-        status VARCHAR(50) DEFAULT 'Pending', -- Order status (e.g., 'Pending', 'Shipped', 'Completed')
+        order_id UUID NOT NULL REFERENCES order_details(id) ON DELETE CASCADE,
+        order_number VARCHAR(100) UNIQUE NOT NULL,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        payment_type VARCHAR(50),
+        status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
@@ -160,7 +174,7 @@ class DatabaseManager {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         -- prevent duplicate ratings by the same user for the same product
         UNIQUE (product_id, user_id)
-      )`
+      )`,
 
       // Order items table
       /* `CREATE TABLE IF NOT EXISTS order_items (
@@ -183,7 +197,7 @@ class DatabaseManager {
   async addMissingColumns() {
     const columns = [
       {
-        table: 'users', 
+        table: 'users',
         column: 'country',
         type: 'VARCHAR(100)',
         check: `SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'country'`
@@ -202,6 +216,16 @@ class DatabaseManager {
   // Create all necessary indexes
   async createIndexes() {
     const indexes = [
+      // Order table indexes
+      `CREATE INDEX IF NOT EXISTS idx_orders_order_id ON orders(order_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_order_user_id ON "orders"(user_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_order_order_number ON "orders"(order_number)`,
+      `CREATE INDEX IF NOT EXISTS idx_order_status ON "orders"(status)`,
+      `CREATE INDEX IF NOT EXISTS idx_order_created_at ON "orders"(created_at)`,
+
+      // Order detail table indexes
+      `CREATE INDEX IF NOT EXISTS idx_order_detail_user_id ON order_details(user_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_order_detail_product_id ON order_details(product_id)`
     ];
 
     for (const indexSQL of indexes) {
@@ -225,7 +249,7 @@ class DatabaseManager {
           `SELECT 1 FROM pg_constraint WHERE conname = $1`,
           [constraint.name]
         );
-        
+
         if (exists.rows.length === 0) {
           await this.pool.query(constraint.sql);
         }
@@ -240,7 +264,7 @@ class DatabaseManager {
 
   // Create triggers for automatic timestamp updates
   async createTriggers() {
-    // Create the update function
+    // Create the update function for updated_at column
     await this.pool.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()
       RETURNS TRIGGER AS $$
@@ -251,23 +275,49 @@ class DatabaseManager {
       $$ language 'plpgsql'
     `);
 
+    // Create the update function for update_date column
+    await this.pool.query(`
+      CREATE OR REPLACE FUNCTION update_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          NEW.updated_at = CURRENT_TIMESTAMP;
+          RETURN NEW;
+      END;
+      $$ language 'plpgsql'
+    `);
+
+    // Create the update function for update column (order_detail)
+    await this.pool.query(`
+      CREATE OR REPLACE FUNCTION update_update_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          NEW."update" = CURRENT_TIMESTAMP;
+          RETURN NEW;
+      END;
+      $$ language 'plpgsql'
+    `);
+
     const triggers = [
-      'users'
+      { table: 'users', column: 'updated_at', function: 'update_updated_at_column' },
+      { table: '"orders"', column: 'updated_at', function: 'update_updated_at_column' },
+      { table: 'order_details', column: '"update"', function: 'update_update_column' }
     ];
 
-    for (const table of triggers) {
-      const triggerName = `update_${table}_updated_at`;
+    for (const trigger of triggers) {
+      const cleanTableName = trigger.table.replace(/"/g, '');
+      const cleanColumnName = trigger.column.replace(/"/g, '');
+      const triggerName = `update_${cleanTableName}_${cleanColumnName}`;
       try {
         const exists = await this.pool.query(
           `SELECT 1 FROM pg_trigger WHERE tgname = $1`,
           [triggerName]
         );
-        
+
         if (exists.rows.length === 0) {
           await this.pool.query(`
             CREATE TRIGGER ${triggerName} 
-            BEFORE UPDATE ON ${table} 
-            FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column()
+            BEFORE UPDATE ON ${trigger.table} 
+            FOR EACH ROW EXECUTE PROCEDURE ${trigger.function}()
           `);
         }
       } catch (error) {
@@ -279,7 +329,7 @@ class DatabaseManager {
   // Insert default/initial data
   async insertDefaultData() {
     const bcrypt = require('bcryptjs');
-    
+
     // Insert test user if it doesn't exist
     const testUserExists = await this.pool.query(
       `SELECT 1 FROM users WHERE email = $1`,
@@ -357,12 +407,12 @@ class DatabaseManager {
     if (!this.connected) {
       throw new Error('Database not connected');
     }
-    
+
     const result = await this.pool.query(`
       SELECT column_name FROM information_schema.columns 
       WHERE table_name = $1 AND column_name = $2
     `, [tableName, columnName]);
-    
+
     return result.rows.length > 0;
   }
 
@@ -370,11 +420,11 @@ class DatabaseManager {
     if (!this.connected) {
       throw new Error('Database not connected');
     }
-    
+
     const result = await this.pool.query(`
       SELECT indexname FROM pg_indexes WHERE indexname = $1
     `, [indexName]);
-    
+
     return result.rows.length > 0;
   }
 
@@ -382,12 +432,12 @@ class DatabaseManager {
     if (!this.connected) {
       throw new Error('Database not connected');
     }
-    
+
     const result = await this.pool.query(`
       SELECT table_name FROM information_schema.tables 
       WHERE table_name = $1
     `, [tableName]);
-    
+
     return result.rows.length > 0;
   }
 

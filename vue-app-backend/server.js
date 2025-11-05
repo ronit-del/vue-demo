@@ -70,10 +70,16 @@ async function startServer() {
         next();
     });
 
-    // CORS configuration for Angular frontend
+    // CORS configuration for frontend applications
     app.use(cors({
         origin: process.env.NODE_ENV === 'production'
-            ? ['https://app.vueApp.com'] : ['http://192.168.0.111:8080'],
+            ? ['https://app.vueApp.com'] 
+            : [
+                'http://192.168.0.111:8080',  // my-vue-app
+                'http://192.168.0.111:8081',  // admin-dashboard
+                'http://localhost:8080',
+                'http://localhost:8081'
+            ],
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization']
@@ -149,6 +155,10 @@ async function startServer() {
     // API Routes - Always mount auth routes (they handle DB checks internally)
     try {
         app.use('/api/auth', require('./api/auth'));
+        app.use('/api/dashboard', require('./api/dashboard'));
+        app.use('/api/orders', require('./api/orders'));
+        app.use('/api/customers', require('./api/customers'));
+        app.use('/api/prices', require('./api/prices'));
 
         console.log('✅ API routes loaded successfully');
     } catch (error) {

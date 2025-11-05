@@ -205,9 +205,19 @@ const api = axios.create({
 
 const authUrl = '/api/auth/';
 
-export const getProfileData = async () => {
+export const getProfileData = async (user_id = null) => {
     try {
-        const response = await api.get(authUrl + 'profile');
+        // Get user_id from localStorage if not provided
+        if (!user_id) {
+            const user = JSON.parse(localStorage.getItem('user') || 'null');
+            if (user && user.id) {
+                user_id = user.id;
+            }
+        }
+        
+        const response = await api.get(authUrl + 'profile', {
+            params: { user_id }
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -351,6 +361,26 @@ export const createStripe= async (data) => {
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
+        throw error;
+    }
+};
+
+export const createPayPalOrder = async (data) => {
+    try {
+        const response = await api.post(authUrl + 'create-paypal-order', data);
+        return response.data;
+    } catch (error) {
+        console.error('Error creating PayPal order:', error);
+        throw error;
+    }
+};
+
+export const capturePayPalOrder = async (data) => {
+    try {
+        const response = await api.post(authUrl + 'capture-paypal-order', data);
+        return response.data;
+    } catch (error) {
+        console.error('Error capturing PayPal order:', error);
         throw error;
     }
 };

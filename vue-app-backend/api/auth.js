@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
 const stripe = require('stripe')(process.env.STRIPE_KEY);
+const axios = require('axios');
 const db = require("../config/db");
 const pool = db.getPool();
 
@@ -206,6 +207,78 @@ router.post("/register", async (req, res) => {
         res.status(statusCode.INTERNAL_SERVER_ERROR.code).json({
             message: statusCode.INTERNAL_SERVER_ERROR.message,
             error: error.error
+        });
+    }
+});
+
+// Get profile route
+router.get("/profile", async (req, res) => {
+    try {
+        // Get user_id from query parameter or session
+        let user_id = req.query.user_id;
+
+        // If no user_id in query, try to get from session
+        if (!user_id && req.session && req.session.user) {
+            user_id = req.session.user.id;
+        }
+
+        // If still no user_id, try to get from authorization header
+        if (!user_id && req.headers.authorization && req.headers.authorization !== '') {
+            try {
+                const userData = JSON.parse(req.headers.authorization);
+                if (userData && userData.id) {
+                    user_id = userData.id;
+                }
+            } catch (error) {
+                console.error('Error parsing Authorization header:', error);
+            }
+        }
+
+        if (!user_id) {
+            return res.status(statusCode.BAD_REQUEST.code).json({
+                success: false,
+                error: "User ID is required"
+            });
+        }
+
+        // Fetch user profile from database
+        const result = await pool.query(
+            `SELECT id, name, email, phone, postal_code, address, country, email_verified, created_at, updated_at 
+             FROM users WHERE id = $1`,
+            [user_id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(statusCode.BAD_REQUEST.code).json({
+                success: false,
+                error: "User not found"
+            });
+        }
+
+        const user = result.rows[0];
+
+        return res.status(statusCode.SUCCESS.code).json({
+            success: true,
+            message: "Profile fetched successfully!",
+            data: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone || '',
+                postal_code: user.postal_code || '',
+                address: user.address || '',
+                country: user.country || '',
+                email_verified: user.email_verified,
+                created_at: user.created_at,
+                updated_at: user.updated_at
+            }
+        });
+    } catch (error) {
+        console.error("Profile fetch error:", error);
+        return res.status(statusCode.INTERNAL_SERVER_ERROR.code).json({
+            success: false,
+            message: statusCode.INTERNAL_SERVER_ERROR.message,
+            error: error.message || "An error occurred while fetching profile"
         });
     }
 });
@@ -449,7 +522,7 @@ router.post("/get-product-order", async (req, res) => {
         const { user_id, product_id } = req.body;
 
         const result = await pool.query(
-            `SELECT * FROM orders WHERE user_id = $1 AND product_id = $2`,
+            `SELECT * FROM orders WHERE user_id = $1 AND product_id = $2 AND status = 'Pending'`,
             [user_id, product_id]
         );
 
@@ -516,21 +589,24 @@ router.post("/order", async (req, res) => {
         const data = req.body;
         let result;
 
+        // Only check for Pending orders - if order is completed/ordered, create a new one
         const productExist = await pool.query(
-            `SELECT id, price, quantity, total_amount FROM orders WHERE user_id = $1 AND product_id = $2`,
+            `SELECT id, price, quantity, total_amount FROM orders WHERE user_id = $1 AND product_id = $2 AND status = 'Pending'`,
             [data.user_id, data.product_id]
         );
 
         const product = productExist.rows[0];
 
         if (product && product.id) {
+            // Update existing Pending order
             result = await pool.query(
                 `UPDATE orders SET quantity = ${product.quantity + 1}, 
                     total_amount = ${(product.quantity + 1) * product.price}
-                    WHERE user_id = $1 AND product_id = $2 RETURNING product_id`,
+                    WHERE user_id = $1 AND product_id = $2 AND status = 'Pending' RETURNING product_id`,
                 [data.user_id, data.product_id]
             );
         } else {
+            // Create new order entry (either no order exists or existing order is completed)
             result = await pool.query(
                 `INSERT INTO orders (user_id, product_id, price, quantity, total_amount, status, created_at, 
                     updated_at
@@ -539,7 +615,6 @@ router.post("/order", async (req, res) => {
                 [data.user_id, data.product_id, data.price, data.quantity, data.price, 'Pending']
             );
         }
-        console.log('result -----', result.rows.length > 0);
 
         if (result.rows.length > 0) {
             return res.status(statusCode.SUCCESS.code).json({
@@ -722,11 +797,26 @@ router.post("/add-product-rating", async (req, res) => {
 });
 
 router.post('/create-stripe-session', async (req, res) => {
-    const { cart, userDetail } = req.body;
+    const { cart, userDetail, payment_method } = req.body;
     const cartId = cart.map((c) => c.id);
 
     try {
-        // Create a PaymentIntent (if you're using PaymentIntents instead of Sessions)
+        // Handle COD payment method - no Stripe processing needed
+        if (payment_method === 'cod') {
+            await pool.query(`
+                UPDATE orders SET status = 'Ordered' 
+                WHERE user_id = $1 AND status = 'Pending' AND id = Any($2)
+            `, [userDetail.user_id, cartId]);
+
+            return res.status(200).json({
+                status: true,
+                success: true,
+                message: 'Order placed successfully with COD',
+                payment_method: 'cod'
+            });
+        }
+
+        // Create a PaymentIntent for Stripe (if you're using PaymentIntents instead of Sessions)
         const paymentIntent = await stripe.paymentIntents.create({
             amount: cart.reduce((total, item) => total + item.price * item.quantity * 100, 0), // Total in cents
             currency: 'usd',
@@ -757,6 +847,219 @@ router.post('/create-stripe-session', async (req, res) => {
     } catch (error) {
         console.error('Error:', error);
         res.status(500).send('Error creating payment intent');
+    }
+});
+
+// PayPal Order Creation
+router.post('/create-paypal-order', async (req, res) => {
+    try {
+        const { cart, userDetail } = req.body;
+        const totalAmount = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+        const taxAmount = totalAmount * 0.1;
+        const finalAmount = totalAmount + taxAmount;
+
+        // PayPal API credentials
+        const clientId = process.env.PAYPAL_CLIENT_ID;
+        const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+        const baseURL = process.env.PAYPAL_MODE === 'live'
+            ? 'https://api-m.paypal.com'
+            : 'https://api-m.sandbox.paypal.com';
+
+        if (!clientId || !clientSecret) {
+            return res.status(500).json({
+                success: false,
+                error: 'PayPal credentials not configured'
+            });
+        }
+
+        // Get PayPal access token
+        const authResponse = await axios.post(
+            `${baseURL}/v1/oauth2/token`,
+            'grant_type=client_credentials',
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json',
+                },
+                auth: {
+                    username: clientId,
+                    password: clientSecret
+                }
+            }
+        );
+
+        const accessToken = authResponse.data.access_token;
+
+        // Create PayPal order
+        const orderData = {
+            intent: 'CAPTURE',
+            purchase_units: [{
+                amount: {
+                    currency_code: 'USD',
+                    value: finalAmount.toFixed(2),
+                    breakdown: {
+                        item_total: {
+                            currency_code: 'USD',
+                            value: totalAmount.toFixed(2)
+                        },
+                        tax_total: {
+                            currency_code: 'USD',
+                            value: taxAmount.toFixed(2)
+                        }
+                    }
+                },
+                items: cart.map(item => ({
+                    name: item.name || 'Product',
+                    unit_amount: {
+                        currency_code: 'USD',
+                        value: item.price.toFixed(2)
+                    },
+                    quantity: item.quantity.toString(),
+                    sku: item.product_id?.toString() || 'SKU'
+                })),
+                description: `Order for ${userDetail.name}`,
+                shipping: {
+                    name: {
+                        full_name: userDetail.name
+                    },
+                    address: {
+                        address_line_1: userDetail.address,
+                        admin_area_2: userDetail.address,
+                        postal_code: userDetail.postal_code,
+                        country_code: userDetail.country || 'US'
+                    }
+                }
+            }],
+            application_context: {
+                brand_name: 'SmartShop',
+                landing_page: 'NO_PREFERENCE',
+                user_action: 'PAY_NOW',
+                return_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/order-success`,
+                cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/checkout`
+            }
+        };
+
+        const orderResponse = await axios.post(
+            `${baseURL}/v2/checkout/orders`,
+            orderData,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/json'
+                }
+            }
+        );
+
+        if (orderResponse.data && orderResponse.data.id) {
+            // Store order ID in database for reference
+            const orderId = orderResponse.data.id;
+
+            return res.status(200).json({
+                success: true,
+                orderId: orderId,
+                orderData: orderResponse.data
+            });
+        } else {
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to create PayPal order'
+            });
+        }
+
+    } catch (error) {
+        console.error('PayPal Order Creation Error:', error.response?.data || error.message);
+        return res.status(500).json({
+            success: false,
+            error: error.response?.data?.message || error.message || 'Error creating PayPal order'
+        });
+    }
+});
+
+// PayPal Order Capture
+router.post('/capture-paypal-order', async (req, res) => {
+    try {
+        const { orderId, cart, userDetail } = req.body;
+        const cartId = cart.map((c) => c.id);
+
+        if (!orderId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Order ID is required'
+            });
+        }
+
+        // PayPal API credentials
+        const clientId = process.env.PAYPAL_CLIENT_ID;
+        const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+        const baseURL = process.env.PAYPAL_MODE === 'live'
+            ? 'https://api-m.paypal.com'
+            : 'https://api-m.sandbox.paypal.com';
+
+        if (!clientId || !clientSecret) {
+            return res.status(500).json({
+                success: false,
+                error: 'PayPal credentials not configured'
+            });
+        }
+
+        // Get PayPal access token
+        const authResponse = await axios.post(
+            `${baseURL}/v1/oauth2/token`,
+            'grant_type=client_credentials',
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json',
+                },
+                auth: {
+                    username: clientId,
+                    password: clientSecret
+                }
+            }
+        );
+
+        const accessToken = authResponse.data.access_token;
+
+        // Capture the PayPal order
+        const captureResponse = await axios.post(
+            `${baseURL}/v2/checkout/orders/${orderId}/capture`,
+            {},
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/json'
+                }
+            }
+        );
+
+        if (captureResponse.data && captureResponse.data.status === 'COMPLETED') {
+            // Update order status in database
+            await pool.query(`
+                UPDATE orders SET status = 'Ordered' 
+                WHERE user_id = $1 AND status = 'Pending' AND id = Any($2)
+            `, [userDetail.user_id, cartId]);
+
+            return res.status(200).json({
+                success: true,
+                orderId: orderId,
+                captureData: captureResponse.data
+            });
+        } else {
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to capture PayPal order',
+                details: captureResponse.data
+            });
+        }
+
+    } catch (error) {
+        console.error('PayPal Capture Error:', error.response?.data || error.message);
+        return res.status(500).json({
+            success: false,
+            error: error.response?.data?.message || error.message || 'Error capturing PayPal order'
+        });
     }
 });
 

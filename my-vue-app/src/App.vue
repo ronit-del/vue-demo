@@ -22,38 +22,52 @@
 </script>
 
 <style>
-  @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@300..900&display=swap");
-
-  * {
-    box-sizing: border-box;
-  }
-
-  body {
-    background: #f1f1f1;
-    min-height: 100vh;
-    font-family: 'Montserrat', sans-serif;
-  }
+  @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap");
 
   .auth-wrapper {
-    min-height: 100vh;
-    background: #b5d3e5;
+    min-height: calc(100vh - 80px);
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    padding-top: 80px;
   }
 
   .auth-inner {
-    width: auto !important;
-    border-radius: 12px;
-    /* box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); */
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
     padding: 20px;
+    border-radius: 0;
   }
 
   .navbar-light {
-    background-color: #bfd7eb !important;
-    box-shadow: 0px 14px 80px rgb(0 0 0 / 50%) !important;
+    background-color: var(--bg-primary) !important;
+    box-shadow: var(--shadow-md) !important;
   }
 
   .error-message {
-    color: red;
-    font-size: 12px;
+    color: var(--danger-color);
+    font-size: 0.875rem;
     font-weight: 500;
+    margin-top: 0.5rem;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .auth-wrapper {
+      padding-top: 70px;
+    }
+    
+    .auth-inner {
+      padding: 1rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .auth-wrapper {
+      padding-top: 60px;
+    }
+    
+    .auth-inner {
+      padding: 0.75rem;
+    }
   }
 </style>

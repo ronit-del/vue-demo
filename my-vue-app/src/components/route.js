@@ -8,6 +8,8 @@ import ResetPasswordComponent from './views/ResetPassword.vue'
 import Checkout from './views/Checkout.vue';
 import ProductDetail from './views/Product-Detail.vue';
 import PaymentSuccess from './views/PaymentSuccess.vue';
+import ProductsComponent from './views/Products.vue';
+import Profile from './views/Profile.vue';
 
 const routes = [
     { path: '/', component: HomeComponent },
@@ -19,6 +21,8 @@ const routes = [
     { path: '/product-detail/:id', component: ProductDetail },
     { path: '/checkout', component: Checkout },
     { path: '/order-success', component: PaymentSuccess},
+    { path: '/products', component: ProductsComponent },
+    { path: '/profile', component: Profile },
 ];
 
 const router = createRouter({

@@ -12,13 +12,16 @@
         <section class="categories">
             <h2 class="section-title">Shop by Categories</h2>
             <div class="category-list">
-                <div class="category-item">
-                    <img src="/product-category/electronics.png" alt="Electronics" />
-                    <h3>Electronics</h3>
-                </div>
-                <div class="category-item">
-                    <img src="/product-category/clothe.png" alt="Clothing" />
-                    <h3>Clothing</h3>
+                <div 
+                    v-for="category in categories" 
+                    :key="category.id"
+                    class="category-item"
+                    @click="filterByCategory(category.id)"
+                    :class="{ active: selectedCategory === category.id }"
+                >
+                    <img :src="category.image" :alt="category.name" />
+                    <h3>{{ category.name }}</h3>
+                    <p class="category-count">{{ getCategoryCount(category.id) }} products</p>
                 </div>
             </div>
         </section>
@@ -50,7 +53,7 @@
 
             <!-- Show More Button -->
             <div v-if="productsToShow < allProducts.length" class="show-more-btn">
-                <button @click="showMoreProducts">Show More</button>
+                <button @click="goToProductsPage">Show More Products</button>
             </div>
         </section>
 
@@ -111,20 +114,47 @@
         data() {
             return {
                 products: product,
-                productsToShow: 6, // number of products to show initially
-                productsBatch: 6, // number of products to add per "Show More"
+                productsToShow: 4, // number of products to show initially (minimal)
                 cartItems: {}, // product_id → quantity
-                loadingItems: {} // product_id → loading state
-
-                ,selectedFile: null,
+                loadingItems: {}, // product_id → loading state
+                selectedFile: null,
                 previewImage: null,
-
-                averageRatings: {}
+                averageRatings: {},
+                selectedCategory: null, // selected category filter
+                categories: [
+                    {
+                        id: 'electronics',
+                        name: 'Electronics',
+                        image: '/product-category/electronics.png'
+                    },
+                    {
+                        id: 'clothes',
+                        name: 'Clothing',
+                        image: '/product-category/clothe.png'
+                    },
+                    {
+                        id: 'home_appliances',
+                        name: 'Home Appliances',
+                        image: '/product-category/home_appliances.png'
+                    },
+                    {
+                        id: 'beauty',
+                        name: 'Beauty',
+                        image: '/product-category/beuty.png'
+                    }
+                ]
             };
         },
 
         computed: {
             allProducts() {
+                // Filter by category if one is selected
+                if (this.selectedCategory) {
+                    return this.products.filter(product => {
+                        const category = this.getProductCategory(product);
+                        return category === this.selectedCategory;
+                    });
+                }
                 return [...this.products];
             },
             displayedProducts() {
@@ -133,6 +163,35 @@
         },
 
         methods: {
+            getProductCategory(product) {
+                // Determine category based on image path
+                if (product.image && product.image.includes('electronics')) {
+                    return 'electronics';
+                } else if (product.image && product.image.includes('clothes')) {
+                    return 'clothes';
+                } else if (product.image && product.image.includes('home appliance')) {
+                    return 'home_appliances';
+                } else if (product.image && product.image.includes('beauty')) {
+                    return 'beauty';
+                }
+                return null;
+            },
+            filterByCategory(categoryId) {
+                if (this.selectedCategory === categoryId) {
+                    // If clicking the same category, deselect it
+                    this.selectedCategory = null;
+                } else {
+                    this.selectedCategory = categoryId;
+                }
+                // Reset products to show
+                this.productsToShow = 6;
+            },
+            getCategoryCount(categoryId) {
+                return this.products.filter(product => {
+                    const category = this.getProductCategory(product);
+                    return category === categoryId;
+                }).length;
+            },
             async getProductRatingData(product_id) {
                 const user = JSON.parse(localStorage.getItem('user'));
                 const data = { user_id: user?.id || null, product_id };
@@ -197,8 +256,13 @@
                 this.$router.push(`/product-detail/${product.id}`)
             },
 
-            showMoreProducts() {
-                this.productsToShow += this.productsBatch;
+            goToProductsPage() {
+                // Redirect to products page with category filter if one is selected
+                if (this.selectedCategory) {
+                    this.$router.push({ path: '/products', query: { category: this.selectedCategory } });
+                } else {
+                    this.$router.push('/products');
+                }
             }
         },
 
@@ -217,28 +281,57 @@
     }
 
     body {
-        background-color: #f8f9fa;
+        background-color: var(--bg-secondary);
         font-family: 'Montserrat', sans-serif;
         margin: 0;
         padding: 0;
     }
 
+    .home-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
     .hero-section {
-        /* background: url("") no-repeat center center/cover; */
-        padding: 100px 20px 0px 20px;
-        color: #fff;
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        padding: 6rem 2rem 4rem;
+        color: white;
         text-align: center;
+        border-radius: 16px;
+        margin: 2rem 0;
+        box-shadow: var(--shadow-lg);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grid)"/></svg>');
+        opacity: 0.3;
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 1;
     }
 
     .hero-section h1 {
-        font-size: 48px;
-        font-weight: 700;
-        margin-bottom: 20px;
+        font-size: 3rem;
+        font-weight: 800;
+        margin-bottom: 1.5rem;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     }
 
     .hero-section p {
-        font-size: 20px;
-        margin-bottom: 40px;
+        font-size: 1.25rem;
+        margin-bottom: 2rem;
+        opacity: 0.95;
     }
 
     .search-bar {
@@ -269,76 +362,134 @@
     }
 
     .categories {
-        margin: 60px 0;
+        margin: 4rem 0;
+        text-align: center;
+    }
+
+    .section-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 2rem;
         text-align: center;
     }
 
     .categories .category-list {
-        display: flex;
-        justify-content: space-around;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+        justify-items: center;
     }
 
     .category-item {
-        width: 200px;
+        width: 100%;
+        max-width: 300px;
         text-align: center;
-        margin: 20px;
-        border-radius: 8px;
+        background: var(--bg-primary);
+        border-radius: 12px;
         overflow: hidden;
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--border-color);
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .category-item:hover {
+        transform: translateY(-8px);
+        box-shadow: var(--shadow-xl);
+    }
+
+    .category-item.active {
+        border: 2px solid var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .category-count {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-top: 0.5rem;
+        font-weight: 500;
     }
 
     .category-item img {
         width: 100%;
-        height: 200px;
+        height: 250px;
         object-fit: cover;
     }
 
     .category-item h3 {
-        font-size: 20px;
+        font-size: 1.25rem;
         font-weight: 600;
-        margin-top: 10px;
+        margin: 1rem 0;
+        color: var(--text-primary);
     }
 
     .featured-products {
-        margin: 60px 0;
+        margin: 4rem 0;
     }
 
     .product-list {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 90px;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 2rem;
+        padding: 1rem 0;
     }
 
     .product-item {
-        background-color: #fff;
+        background-color: var(--bg-primary);
         border-radius: 12px;
-        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
-        padding: 20px;
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--border-color);
+        padding: 1.5rem;
         text-align: center;
-        transition: transform 0.3s ease;
+        transition: all 0.3s ease;
+        overflow: hidden;
+        position: relative;
     }
 
     .product-item:hover {
-        transform: scale(1.05);
+        transform: translateY(-8px);
+        box-shadow: var(--shadow-xl);
     }
 
     .product-item img {
         width: 100%;
-        height: 200px;
+        height: 220px;
         object-fit: cover;
         border-radius: 8px;
+        margin-bottom: 1rem;
+        transition: transform 0.3s ease;
+    }
+
+    .product-item:hover img {
+        transform: scale(1.05);
     }
 
     .product-item h3 {
-        font-size: 18px;
+        font-size: 1.125rem;
         font-weight: 600;
-        margin-top: 10px;
+        margin: 0.75rem 0;
+        color: var(--text-primary);
+        line-height: 1.4;
     }
 
     .product-item p {
-        font-size: 16px;
-        color: #167bff;
-        margin: 10px 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin: 0.75rem 0;
+    }
+
+    .product-rating {
+        margin: 0.75rem 0;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        font-weight: 600;
+    }
+
+    .product-rating span {
+        color: var(--warning-color);
     }
 
     .product-item-list {
@@ -360,12 +511,23 @@
     }
 
     .view-product-btn {
-        padding: 10px 20px;
-        background-color: #167bff;
-        color: #fff;
+        width: 100%;
+        padding: 0.875rem 1.5rem;
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 8px;
         cursor: pointer;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+        margin-top: 0.75rem;
+    }
+
+    .view-product-btn:hover {
+        background: linear-gradient(135deg, var(--primary-dark), #4338ca);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
     }
 
     .quantity-control {
@@ -410,20 +572,26 @@
 
     .show-more-btn {
         text-align: center;
-        margin-top: 20px;
+        margin-top: 3rem;
     }
 
     .show-more-btn button {
-        padding: 10px 20px;
-        background-color: #167bff;
-        color: #fff;
+        padding: 1rem 2rem;
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 8px;
         cursor: pointer;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-md);
     }
 
     .show-more-btn button:hover {
-        background-color: #0056b3;
+        background: linear-gradient(135deg, var(--primary-dark), #4338ca);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
     }
 
     .offer-item {
@@ -449,42 +617,57 @@
     }
 
     .testimonials {
-        /* background-color: #e7eff6; */
-        padding: 40px 20px;
+        margin: 4rem 0;
+        padding: 3rem 0;
         text-align: center;
     }
 
     .testimonials .testimonial-list {
-        display: flex;
-        justify-content: center;
-        gap: 50px;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        justify-items: center;
+        margin-top: 2rem;
     }
 
     .testimonial-item {
-        width: 280px;
-        background-color: #fff;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 350px;
+        background-color: var(--bg-primary);
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--border-color);
+        transition: all 0.3s ease;
+    }
+
+    .testimonial-item:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
     }
 
     .testimonial-item p {
-        font-size: 16px;
+        font-size: 1rem;
         font-style: italic;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        margin-bottom: 1rem;
     }
 
     .testimonial-item h3 {
-        font-size: 18px;
+        font-size: 1.125rem;
         font-weight: 600;
-        margin-top: 10px;
+        margin-top: 1rem;
+        color: var(--text-primary);
     }
 
     .footer {
-        background-color: #333;
-        color: #fff;
-        padding: 40px 20px;
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        color: white;
+        padding: 3rem 2rem;
         text-align: center;
+        margin-top: 4rem;
+        border-radius: 16px 16px 0 0;
     }
 
     .footer-content {
@@ -492,17 +675,56 @@
         margin: 0 auto;
     }
 
+    .footer-content p {
+        margin-bottom: 1rem;
+        color: rgba(255, 255, 255, 0.8);
+    }
+
     .social-links {
-        margin-top: 20px;
+        margin-top: 1.5rem;
+        display: flex;
+        justify-content: center;
+        gap: 1.5rem;
     }
 
     .social-links a {
-        color: #fff;
-        margin: 0 10px;
+        color: rgba(255, 255, 255, 0.8);
         text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
     }
 
     .social-links a:hover {
-        color: #167bff;
+        color: white;
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    @media (max-width: 768px) {
+        .hero-section {
+            padding: 4rem 1.5rem 3rem;
+        }
+
+        .hero-section h1 {
+            font-size: 2rem;
+        }
+
+        .hero-section p {
+            font-size: 1rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+        }
+
+        .product-list {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .category-list {
+            grid-template-columns: 1fr;
+        }
     }
 </style>

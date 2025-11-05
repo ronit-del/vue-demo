@@ -63,27 +63,88 @@
     };
 </script>
 
-<style>
+<style scoped>
     .forgot-password-container {
-        width: 480px;
-        margin: auto;
-        padding: 20px;
-        box-sizing: border-box;
-        margin-top: 100px;
-        background: #ffffff;
-        box-shadow: 0 6px 10px rgba(0, 0, 0, 1.1);
-        border-radius: 10px;
+        width: 100%;
+        max-width: 480px;
+        margin: 2rem auto;
+        padding: 2.5rem;
+        background: var(--bg-primary);
+        box-shadow: var(--shadow-xl);
+        border-radius: 16px;
+        border: 1px solid var(--border-color);
     }
 
     form {
         width: 100%;
-        margin: auto;
     }
 
     h3 {
         text-align: center;
-        font-size: 28px;
-        margin-bottom: 30px;
-        color: #444;
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 2rem;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.75rem;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 1rem;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        transition: all 0.3s ease;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .form-control::placeholder {
+        color: var(--text-tertiary);
+    }
+
+    .btn-block {
+        width: 100%;
+        padding: 1rem;
+        margin-top: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .forgot-password-container {
+            margin: 1rem auto;
+            padding: 2rem 1.5rem;
+        }
+
+        h3 {
+            font-size: 1.75rem;
+            margin-bottom: 1.5rem;
+        }
     }
 </style>

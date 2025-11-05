@@ -258,89 +258,136 @@ export default {
 
 <style scoped>
 .register-container {
-    width: 960px;
-    margin: auto;
-    padding: 20px;
-    box-sizing: border-box;
-    margin-top: 60px;
-    background: #ffffff;
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 1.1);
-    border-radius: 10px;
+    width: 100%;
+    max-width: 960px;
+    margin: 2rem auto;
+    padding: 2.5rem;
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-xl);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+}
+
+.register-form {
+    width: 100%;
 }
 
 .form-title {
     text-align: center;
-    font-size: 28px;
-    color: #444;
+    font-size: 2rem;
     font-weight: 700;
-    margin-bottom: 30px;
+    margin-bottom: 2rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 1.5rem;
 }
 
 .form-group label {
-    font-weight: 500;
-    color: #555;
-    margin-bottom: 8px;
+    display: block;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .form-control {
     width: 100%;
-    padding: 0px 16px;
-    border: 2px solid #6e8dab;
+    padding: 0.875rem 1rem;
+    border: 2px solid var(--border-color);
     border-radius: 8px;
-    font-size: 16px;
-    background-color: #d4dde7;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    font-size: 1rem;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+    font-family: 'Montserrat', sans-serif;
 }
 
 .form-control:focus {
     outline: none;
-    border-color: #167bff;
-    box-shadow: 0 0 0 3px rgba(22, 123, 255, 0.1);
-    background-color: #ffffff;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    background-color: var(--bg-primary);
+}
+
+.form-control::placeholder {
+    color: var(--text-tertiary);
 }
 
 .register-btn {
     width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #167bff 0%, #0056b3 100%);
-    border: none;
-    border-radius: 8px;
-    color: white;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
+    padding: 1rem;
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
-.register-btn:hover {
-    background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(22, 123, 255, 0.3);
-}
-
-.register-btn:active {
-    transform: translateY(0);
+.register-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .address-suggestions {
     list-style-type: none;
     padding: 0;
-    margin-top: 10px;
-    border: 1px solid #ddd;
+    margin-top: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
     max-height: 200px;
     overflow-y: auto;
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-md);
 }
 
 .address-suggestions li {
-    padding: 8px;
+    padding: 0.75rem 1rem;
     cursor: pointer;
+    transition: background 0.2s ease;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.address-suggestions li:last-child {
+    border-bottom: none;
 }
 
 .address-suggestions li:hover {
-    background-color: #f1f1f1;
+    background-color: var(--bg-secondary);
+}
+
+@media (max-width: 768px) {
+    .register-container {
+        margin: 1rem auto;
+        padding: 2rem 1.5rem;
+    }
+
+    .row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .form-title {
+        font-size: 1.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-control {
+        padding: 0.75rem 0.875rem;
+        font-size: 0.875rem;
+    }
 }
 </style>
