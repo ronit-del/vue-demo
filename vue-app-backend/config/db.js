@@ -138,29 +138,30 @@ class DatabaseManager {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
 
-      // Order detail table (created second, references orders)
-      `CREATE TABLE IF NOT EXISTS order_details (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        product_id VARCHAR(100) NOT NULL, -- Reference to the product
-        base_price DECIMAL(10, 2) NOT NULL, -- Base price of the product at the time of purchase
-        quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0), -- Quantity of the product
-        total_amount DECIMAL(10, 2) NOT NULL, -- Total amount for this line item (base_price * quantity)
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Creation timestamp
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Update timestamp
-      )`,
-
       // Order table (created first as parent table)
       `CREATE TABLE IF NOT EXISTS orders (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        order_id UUID NOT NULL REFERENCES order_details(id) ON DELETE CASCADE,
-        order_number VARCHAR(100) UNIQUE NOT NULL,
+        order_number VARCHAR(100) UNIQUE NOT NULL, -- Unique order identifier
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
         payment_type VARCHAR(50),
         status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`,
+
+      // Order detail table (created second, references orders)
+      `CREATE TABLE IF NOT EXISTS order_details (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE, -- Reference to the order
+        order_number VARCHAR(100) NOT NULL, -- Order number shared by all items in the same order (matches orders.order_number)
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE, -- Reference to the product
+        base_price DECIMAL(10, 2) NOT NULL, -- Base price of the product at the time of purchase
+        quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0), -- Quantity of the product
+        total_amount DECIMAL(10, 2) NOT NULL, -- Total amount for this line item (base_price * quantity)
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Creation timestamp
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Update timestamp
       )`,
 
       // Product rating table
@@ -211,19 +212,81 @@ class DatabaseManager {
         console.log(`✅ Added missing column: ${col.table}.${col.column}`);
       }
     }
+
+    // Migration: Fix order_details to have order_id column and proper relationship
+    try {
+      // Check if order_details has order_id column
+      const orderIdCheck = await this.pool.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_name = 'order_details' AND column_name = 'order_id'`
+      );
+      
+      // Check if orders has order_number column
+      const orderNumberCheck = await this.pool.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'order_number'`
+      );
+
+      // Add order_id to order_details if it doesn't exist
+      if (orderIdCheck.rows.length === 0) {
+        await this.pool.query(`ALTER TABLE order_details ADD COLUMN order_id UUID`);
+        console.log(`✅ Added order_id column to order_details`);
+
+        // Migrate: Link order_details to orders via order_number
+        await this.pool.query(`
+          UPDATE order_details od
+          SET order_id = o.id
+          FROM orders o
+          WHERE o.order_number = od.order_number AND od.order_id IS NULL
+        `);
+        console.log(`✅ Linked order_details to orders via order_number`);
+
+        // Make order_id NOT NULL after migration
+        await this.pool.query(`ALTER TABLE order_details ALTER COLUMN order_id SET NOT NULL`);
+        console.log(`✅ Set order_id as NOT NULL in order_details`);
+
+        // Add foreign key constraint
+        await this.pool.query(`
+          ALTER TABLE order_details 
+          ADD CONSTRAINT fk_order_details_order_id 
+          FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+        `);
+        console.log(`✅ Added foreign key constraint on order_details.order_id`);
+      }
+
+      // Ensure orders has order_number column
+      if (orderNumberCheck.rows.length === 0) {
+        await this.pool.query(`ALTER TABLE orders ADD COLUMN order_number VARCHAR(100)`);
+        console.log(`✅ Added order_number column to orders`);
+
+        // Generate order_numbers for existing orders
+        await this.pool.query(`
+          UPDATE orders
+          SET order_number = 'ORD-' || TO_CHAR(created_at, 'YYYYMMDDHH24MISS') || '-' || SUBSTRING(id::text, 1, 8)
+          WHERE order_number IS NULL
+        `);
+        console.log(`✅ Generated order_numbers for existing orders`);
+
+        // Make order_number NOT NULL and unique
+        await this.pool.query(`ALTER TABLE orders ALTER COLUMN order_number SET NOT NULL`);
+        await this.pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_order_number_unique ON orders(order_number)`);
+        console.log(`✅ Set order_number as NOT NULL and unique in orders`);
+      }
+    } catch (error) {
+      console.error('Migration error:', error);
+    }
   }
 
   // Create all necessary indexes
   async createIndexes() {
     const indexes = [
       // Order table indexes
-      `CREATE INDEX IF NOT EXISTS idx_orders_order_id ON orders(order_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_orders_order_number ON orders(order_number)`,
       `CREATE INDEX IF NOT EXISTS idx_order_user_id ON "orders"(user_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_order_order_number ON "orders"(order_number)`,
       `CREATE INDEX IF NOT EXISTS idx_order_status ON "orders"(status)`,
       `CREATE INDEX IF NOT EXISTS idx_order_created_at ON "orders"(created_at)`,
 
       // Order detail table indexes
+      `CREATE INDEX IF NOT EXISTS idx_order_detail_order_id ON order_details(order_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_order_detail_order_number ON order_details(order_number)`,
       `CREATE INDEX IF NOT EXISTS idx_order_detail_user_id ON order_details(user_id)`,
       `CREATE INDEX IF NOT EXISTS idx_order_detail_product_id ON order_details(product_id)`
     ];
@@ -291,10 +354,10 @@ class DatabaseManager {
       CREATE OR REPLACE FUNCTION update_update_column()
       RETURNS TRIGGER AS $$
       BEGIN
-          NEW."update" = CURRENT_TIMESTAMP;
+          NEW.updated_at = CURRENT_TIMESTAMP;
           RETURN NEW;
       END;
-      $$ language 'plpgsql'
+      $$ LANGUAGE 'plpgsql'
     `);
 
     const triggers = [

@@ -21,8 +21,8 @@
         <span class="stat-value">{{ orders.length }}</span>
       </div>
       <div class="stat-item">
-        <span class="stat-label">Pending</span>
-        <span class="stat-value stat-value-warning">{{ pendingCount }}</span>
+        <span class="stat-label">Processing</span>
+        <span class="stat-value stat-value-warning">{{ processingCount }}</span>
       </div>
       <div class="stat-item">
         <span class="stat-label">Completed</span>
@@ -120,7 +120,7 @@
             </tr>
             <tr v-for="order in filteredOrders" :key="order.id" class="table-row">
               <td>
-                <span class="cell-id">{{ order.order_number }}</span>
+                <span class="cell-id">{{ order.order_number || order.id }}</span>
               </td>
               <td>
                 <div class="cell-customer">
@@ -143,13 +143,13 @@
               </td>
               <td class="text-right">
                 <div class="action-buttons">
-                  <button class="btn-action" title="View Details">
+                  <button class="btn-action" title="View Details" @click="$router.push(`/orders/${order.id}`)">
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M1 9C1 9 4 4 9 4C14 4 17 9 17 9C17 9 14 14 9 14C4 14 1 9 1 9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                       <path d="M9 11C10.1046 11 11 10.1046 11 9C11 7.89543 10.1046 7 9 7C7.89543 7 7 7.89543 7 9C7 10.1046 7.89543 11 9 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                   </button>
-                  <button class="btn-action" title="Edit">
+                  <button class="btn-action" title="Edit" @click="$router.push(`/orders/${order.id}/edit`)">
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M11 3L15 7L5 17H1V13L11 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                       <path d="M9 5L13 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -212,14 +212,15 @@ export default {
           date: order.date || new Date()
         }));
       }
-      // Sample data
+      return [];
+      /* // Sample data
       return [
-        { id: 1001, customer: 'John Doe', status: 'Pending', total: 299.99, date: new Date() },
-        { id: 1002, customer: 'Jane Smith', status: 'Processing', total: 549.50, date: new Date(Date.now() - 86400000) },
-        { id: 1003, customer: 'Bob Johnson', status: 'Shipped', total: 129.99, date: new Date(Date.now() - 172800000) },
-        { id: 1004, customer: 'Alice Williams', status: 'Delivered', total: 799.00, date: new Date(Date.now() - 259200000) },
-        { id: 1005, customer: 'Charlie Brown', status: 'Cancelled', total: 199.99, date: new Date(Date.now() - 345600000) }
-      ];
+        { id: 1001, order_number: 'ORD-1001', customer: 'John Doe', status: 'Pending', total: 299.99, date: new Date() },
+        { id: 1002, order_number: 'ORD-1002', customer: 'Jane Smith', status: 'Processing', total: 549.50, date: new Date(Date.now() - 86400000) },
+        { id: 1003, order_number: 'ORD-1003', customer: 'Bob Johnson', status: 'Shipped', total: 129.99, date: new Date(Date.now() - 172800000) },
+        { id: 1004, order_number: 'ORD-1004', customer: 'Alice Williams', status: 'Delivered', total: 799.00, date: new Date(Date.now() - 259200000) },
+        { id: 1005, order_number: 'ORD-1005', customer: 'Charlie Brown', status: 'Cancelled', total: 199.99, date: new Date(Date.now() - 345600000) }
+      ]; */
     },
     filteredOrders() {
       let filtered = this.orders;
@@ -227,7 +228,7 @@ export default {
       if (this.searchQuery) {
         const query = this.searchQuery.toLowerCase();
         filtered = filtered.filter(order => 
-          order.order_number.toString().includes(query) ||
+          (order.order_number || order.id).toString().toLowerCase().includes(query) ||
           order.customer.toLowerCase().includes(query) ||
           order.status.toLowerCase().includes(query) ||
           order.total.toString().includes(query)
@@ -240,8 +241,8 @@ export default {
       
       return filtered;
     },
-    pendingCount() {
-      return this.orders.filter(o => o.status === 'Pending').length;
+    processingCount() {
+      return this.orders.filter(o => o.status === 'Processing').length;
     },
     completedCount() {
       return this.orders.filter(o => o.status === 'Delivered').length;

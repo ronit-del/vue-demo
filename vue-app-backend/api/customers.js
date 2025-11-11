@@ -99,15 +99,30 @@ router.get("/:id/orders", async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 o.id,
-                o.product_id,
-                o.price,
-                o.quantity,
+                o.order_number,
                 o.total_amount as total,
+                o.payment_type,
                 o.status,
                 o.created_at as date,
-                o.updated_at
+                o.updated_at,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', od.id,
+                            'product_id', od.product_id,
+                            'base_price', od.base_price,
+                            'quantity', od.quantity,
+                            'total_amount', od.total_amount,
+                            'order_number', od.order_number
+                        )
+                    ) FILTER (WHERE od.id IS NOT NULL),
+                    '[]'
+                ) as order_items
             FROM orders o
+            LEFT JOIN order_details od ON od.order_id = o.id
             WHERE o.user_id = $1
+            GROUP BY o.id, o.order_number, o.total_amount, o.payment_type, 
+                     o.status, o.created_at, o.updated_at
             ORDER BY o.created_at DESC
         `, [id]);
 

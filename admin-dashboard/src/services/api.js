@@ -47,6 +47,16 @@ export const updateOrderStatus = async (id, status) => {
     }
 };
 
+export const updateOrder = async (id, data) => {
+    try {
+        const response = await api.put(`/api/orders/${id}`, data);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating order:', error);
+        throw error;
+    }
+};
+
 // Customers API
 export const getCustomers = async () => {
     try {

@@ -13,7 +13,7 @@ router.get("/stats", async (req, res) => {
             SELECT 
                 (SELECT COUNT(*) FROM orders WHERE created_at >= date_trunc('month', CURRENT_DATE)) as total_orders_current,
                 (SELECT COUNT(*) FROM users WHERE created_at >= date_trunc('month', CURRENT_DATE)) as total_customers_current,
-                (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE (status = 'Ordered' OR status = 'Delivered') AND created_at >= date_trunc('month', CURRENT_DATE)) as revenue_current,
+                (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE (status = 'Processing' OR status = 'Shipped' OR status = 'Delivered') AND created_at >= date_trunc('month', CURRENT_DATE)) as revenue_current,
                 (SELECT COUNT(*) FROM orders WHERE status = 'Pending' AND created_at >= date_trunc('month', CURRENT_DATE)) as pending_orders_current
         `);
 
@@ -24,7 +24,7 @@ router.get("/stats", async (req, res) => {
                     AND created_at < date_trunc('month', CURRENT_DATE)) as total_orders_previous,
                 (SELECT COUNT(*) FROM users WHERE created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') 
                     AND created_at < date_trunc('month', CURRENT_DATE)) as total_customers_previous,
-                (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'Ordered' OR status = 'Delivered' 
+                (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE (status = 'Processing' OR status = 'Shipped' OR status = 'Delivered')
                     AND created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') 
                     AND created_at < date_trunc('month', CURRENT_DATE)) as revenue_previous,
                 (SELECT COUNT(*) FROM orders WHERE status = 'Pending' 
@@ -37,7 +37,7 @@ router.get("/stats", async (req, res) => {
             SELECT 
                 (SELECT COUNT(*) FROM orders) as total_orders,
                 (SELECT COUNT(*) FROM users) as total_customers,
-                (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'Ordered' OR status = 'Delivered') as revenue,
+                (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status IN ('Processing', 'Shipped', 'Delivered')) as revenue,
                 (SELECT COUNT(*) FROM orders WHERE status = 'Pending') as pending_orders
         `);
 

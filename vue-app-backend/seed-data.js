@@ -6,7 +6,7 @@ const firstNames = ['John', 'Jane', 'Michael', 'Sarah', 'David', 'Emily', 'James
 const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Wilson', 'Anderson', 'Taylor', 'Thomas', 'Moore'];
 const countries = ['USA', 'Canada', 'UK', 'Australia', 'Germany', 'France', 'India', 'Japan', 'Brazil', 'Mexico'];
 const cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Toronto', 'London', 'Sydney', 'Berlin', 'Paris', 'Mumbai', 'Tokyo'];
-const paymentTypes = ['Credit Card', 'PayPal', 'Stripe', 'Debit Card', 'Cash'];
+const paymentTypes = ['Credit Card', 'Stripe', 'Debit Card', 'Cash'];
 const orderStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'];
 
 // Sample product IDs (you can use actual product IDs from your products table)
@@ -111,7 +111,7 @@ async function seedDatabase() {
 
     // Step 2: Ensure we have some products (or use product IDs)
     console.log('📦 Checking products...');
-    const productsResult = await pool.query('SELECT id::text as id FROM products LIMIT 10');
+    const productsResult = await pool.query('SELECT id as id FROM products');
     const existingProductIds = productsResult.rows.map(row => row.id);
     
     // Use existing products or fallback to string IDs
@@ -133,9 +133,24 @@ async function seedDatabase() {
       // Create order with 1-4 products
       const numProducts = randomNumber(1, 4);
       let orderTotal = 0;
-      const orderDetailIds = [];
 
-      // First, create order_details entries (parent table)
+      // First, create the order
+      const orderResult = await pool.query(`
+        INSERT INTO orders (order_number, user_id, total_amount, payment_type, status, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, NOW() - INTERVAL '${orderDateDaysAgo} days', NOW() - INTERVAL '${orderDateDaysAgo} days')
+        RETURNING id
+      `, [
+        orderNumber,
+        userId,
+        0, // Will be updated after order_details are created
+        paymentType,
+        status
+      ]);
+
+      const orderId = orderResult.rows[0].id;
+      orderIds.push(orderId);
+
+      // Then, create order_details entries that reference the order
       for (let j = 0; j < numProducts; j++) {
         const productId = randomElement(availableProductIds);
         const basePrice = randomDecimal(10.00, 500.00);
@@ -143,32 +158,18 @@ async function seedDatabase() {
         const totalAmount = parseFloat((basePrice * quantity).toFixed(2));
         orderTotal += totalAmount;
 
-        const orderDetailResult = await pool.query(`
-          INSERT INTO order_details (user_id, product_id, base_price, quantity, total_amount, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, NOW() - INTERVAL '${orderDateDaysAgo} days', NOW() - INTERVAL '${orderDateDaysAgo} days')
-          RETURNING id
-        `, [userId, productId, basePrice, quantity, totalAmount]);
-        
-        orderDetailIds.push(orderDetailResult.rows[0].id);
+        await pool.query(`
+          INSERT INTO order_details (order_id, order_number, user_id, product_id, base_price, quantity, total_amount, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW() - INTERVAL '${orderDateDaysAgo} days', NOW() - INTERVAL '${orderDateDaysAgo} days')
+        `, [orderId, orderNumber, userId, productId, basePrice, quantity, totalAmount]);
       }
 
-      // Then, create the order (child table) that references the first order_detail
-      const firstOrderDetailId = orderDetailIds[0];
-      const orderResult = await pool.query(`
-        INSERT INTO orders (order_id, order_number, user_id, total_amount, payment_type, status, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW() - INTERVAL '${orderDateDaysAgo} days', NOW() - INTERVAL '${orderDateDaysAgo} days')
-        RETURNING id
-      `, [
-        firstOrderDetailId,
-        orderNumber,
-        userId,
-        parseFloat(orderTotal.toFixed(2)),
-        paymentType,
-        status
-      ]);
-
-      const orderId = orderResult.rows[0].id;
-      orderIds.push(orderId);
+      // Update order total_amount
+      await pool.query(`
+        UPDATE orders 
+        SET total_amount = $1 
+        WHERE id = $2
+      `, [parseFloat(orderTotal.toFixed(2)), orderId]);
 
       if ((i + 1) % 10 === 0) {
         console.log(`  ✅ Created ${i + 1}/${numOrders} orders`);

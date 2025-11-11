@@ -241,43 +241,18 @@
                                         </div>
                                     </div>
                                 </label>
-                                
-                                <label 
-                                    class="payment-method-option"
-                                    :class="{ 'active': selectedPaymentMethod === 'paypal' }"
-                                >
-                                    <input 
-                                        type="radio" 
-                                        name="paymentMethod" 
-                                        value="paypal" 
-                                        v-model="selectedPaymentMethod"
-                                        @change="onPaymentMethodChange"
-                                    />
-                                    <div class="payment-method-content">
-                                        <div class="payment-method-icon">
-                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                                <path d="M8 12H16M8 12L10 10M8 12L10 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                        </div>
-                                        <div class="payment-method-info">
-                                            <span class="payment-method-name">PayPal</span>
-                                            <span class="payment-method-description">Pay with PayPal account</span>
-                                        </div>
-                                    </div>
-                                </label>
                             </div>
                         </div>
                         
                         <form @submit.prevent="handleSubmit" class="payment-form">
                             <!-- Stripe Card Details - Only show when Stripe is selected -->
-                            <div v-if="selectedPaymentMethod === 'stripe'" class="form-group">
+                            <div v-if="selectedPaymentMethod === 'stripe'" class="form-group" :key="'stripe-form-' + selectedPaymentMethod">
                                 <label for="card-element" class="form-label">Card Details</label>
                                 <div v-if="!stripe" class="card-element-wrapper card-loading">
                                     <span class="spinner"></span>
                                     <span>Loading payment system...</span>
                                 </div>
-                                <div v-else-if="stripe && elements" ref="cardElementRef" id="card-element" class="card-element-wrapper">
+                                <div v-else-if="stripe && elements" ref="cardElementRef" :key="'card-element-' + selectedPaymentMethod" id="card-element" class="card-element-wrapper">
                                     <!-- Stripe Elements will mount here -->
                                 </div>
                                 <div v-else class="card-element-wrapper card-loading">
@@ -307,25 +282,6 @@
                                     </div>
                                 </div>
                             </div>
-                            
-                            <!-- PayPal Information -->
-                            <div v-if="selectedPaymentMethod === 'paypal'" class="paypal-info">
-                                <div v-if="!paypalLoaded" class="paypal-loading">
-                                    <span class="spinner"></span>
-                                    <span>Loading PayPal...</span>
-                                </div>
-                                <div id="paypal-button-container" v-if="paypalLoaded"></div>
-                                <div class="paypal-message" v-if="paypalLoaded">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                    <div>
-                                        <p><strong>PayPal Payment</strong></p>
-                                        <p>Click the PayPal button above to complete your payment of <strong>${{ totalPrice }}</strong>.</p>
-                                        <p class="paypal-note">Secure payment via PayPal. Click the button above to proceed.</p>
-                                    </div>
-                                </div>
-                            </div>
 
                             <transition name="fade">
                                 <div v-if="errorMessage" role="alert" class="error-message">
@@ -338,7 +294,6 @@
                             </transition>
 
                             <button 
-                                v-if="selectedPaymentMethod !== 'paypal'"
                                 type="submit" 
                                 :disabled="getSubmitButtonDisabled()" 
                                 class="pay-button"
@@ -405,7 +360,7 @@
                                         <h3 class="cart-item-name">{{ item.name }}</h3>
                                         <div class="cart-item-pricing">
                                             <span class="unit-price">${{ item.price }} each</span>
-                                            <span class="cart-item-total">${{ (item.price * item.quantity).toFixed(2) }}</span>
+                                            <span class="cart-item-total">${{ (item.price * item.quantity)?.toFixed(2) }}</span>
                                         </div>
 
                                         <div class="quantity-selector">
@@ -502,8 +457,8 @@
 </template>
 
 <script>
-import { COUNTRIES, createStripe, createPayPalOrder, capturePayPalOrder, deleteOrderRecord, getOrderData, updateOrderRecord, updateProfile } from '../../services/api';
-import productData from '../../constant.json';
+import { COUNTRIES, createStripe, deleteOrderRecord, getOrderData, updateOrderRecord, updateProfile } from '../../services/api';
+// import productData from '../../constant.json';
 import { loadStripe } from '@stripe/stripe-js';
 
 export default {
@@ -534,9 +489,7 @@ export default {
             showDeleteModal: false,
             itemToDelete: null,
             formErrors: {},
-            selectedPaymentMethod: 'cod', // Default to COD
-            paypalLoaded: false,
-            paypalOrderId: null
+            selectedPaymentMethod: 'cod' // Default to COD
         };
     },
 
@@ -556,10 +509,10 @@ export default {
     },
 
     watch: {
-        // Watch for when stripe and elements are ready to mount card element
-        elements: {
+        // Watch for when payment method changes to stripe - mount card element when stripe is selected
+        selectedPaymentMethod: {
             handler(newVal) {
-                if (newVal && this.stripe && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                if (newVal === 'stripe' && this.stripe && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                     // Wait for Vue to render the card element div with multiple nextTick and delay
                     this.$nextTick(() => {
                         this.$nextTick(() => {
@@ -567,7 +520,53 @@ export default {
                             requestAnimationFrame(() => {
                                 // Add a delay to ensure DOM is fully ready and element is rendered
                                 setTimeout(() => {
-                                    if (this.$el && this.stripe && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                                    if (this.$el && this.stripe && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted && this.selectedPaymentMethod === 'stripe') {
+                                        // Verify the ref exists and is in the DOM before mounting
+                                        const ref = this.$refs.cardElementRef;
+                                        if (ref && ref.parentNode && ref.isConnected) {
+                                            console.log('Mounting Stripe card element from watcher');
+                                            this.mountCardElement();
+                                        } else {
+                                            // Retry after a short delay if ref not ready
+                                            setTimeout(() => {
+                                                const retryRef = this.$refs.cardElementRef;
+                                                if (this.$el && this.stripe && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted && this.selectedPaymentMethod === 'stripe' && retryRef && retryRef.parentNode && retryRef.isConnected) {
+                                                    console.log('Mounting Stripe card element from watcher (retry)');
+                                                    this.mountCardElement();
+                                                }
+                                            }, 300);
+                                        }
+                                    }
+                                }, 300);
+                            });
+                        });
+                    });
+                } else if (newVal !== 'stripe' && this.cardElement) {
+                    // Unmount card element when switching away from stripe
+                    try {
+                        if (this.cardElement && typeof this.cardElement.unmount === 'function') {
+                            this.cardElement.unmount();
+                        }
+                    } catch (error) {
+                        // Ignore unmount errors
+                    }
+                    this.cardElement = null;
+                }
+            },
+            immediate: false
+        },
+        // Watch for when stripe and elements are ready to mount card element
+        elements: {
+            handler(newVal) {
+                if (newVal && this.stripe && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                    // Wait for Vue to render the card element div with multiple nextTick and delay
+                    this.$nextTick(() => {
+                        this.$nextTick(() => {
+                            // Use requestAnimationFrame to ensure DOM is painted
+                            requestAnimationFrame(() => {
+                                // Add a delay to ensure DOM is fully ready and element is rendered
+                                setTimeout(() => {
+                                    if (this.$el && this.stripe && this.elements && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                                         // Verify the ref exists and is in the DOM before mounting
                                         const ref = this.$refs.cardElementRef;
                                         if (ref && ref.parentNode && ref.isConnected) {
@@ -576,7 +575,7 @@ export default {
                                             // Retry after a short delay if ref not ready
                                             setTimeout(() => {
                                                 const retryRef = this.$refs.cardElementRef;
-                                                if (this.$el && this.stripe && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted && retryRef && retryRef.parentNode && retryRef.isConnected) {
+                                                if (this.$el && this.stripe && this.elements && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted && retryRef && retryRef.parentNode && retryRef.isConnected) {
                                                     this.mountCardElement();
                                                 }
                                             }, 200);
@@ -592,7 +591,7 @@ export default {
         },
         stripe: {
             handler(newVal) {
-                if (newVal && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                if (newVal && this.elements && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                     // Wait for Vue to render the card element div with multiple nextTick and delay
                     this.$nextTick(() => {
                         this.$nextTick(() => {
@@ -600,7 +599,7 @@ export default {
                             requestAnimationFrame(() => {
                                 // Add a delay to ensure DOM is fully ready and element is rendered
                                 setTimeout(() => {
-                                    if (this.$el && this.stripe && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                                    if (this.$el && this.stripe && this.elements && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                                         // Verify the ref exists and is in the DOM before mounting
                                         const ref = this.$refs.cardElementRef;
                                         if (ref && ref.parentNode && ref.isConnected) {
@@ -609,7 +608,7 @@ export default {
                                             // Retry after a short delay if ref not ready
                                             setTimeout(() => {
                                                 const retryRef = this.$refs.cardElementRef;
-                                                if (this.$el && this.stripe && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted && retryRef && retryRef.parentNode && retryRef.isConnected) {
+                                                if (this.$el && this.stripe && this.elements && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted && retryRef && retryRef.parentNode && retryRef.isConnected) {
                                                     this.mountCardElement();
                                                 }
                                             }, 200);
@@ -723,17 +722,17 @@ export default {
                         } else {
                             countryCode = '';
                         }
-                        
+
                         this.userDetail = {
                             user_id: response.data[0].user_id,
-                            name: response.data[0].name || '',
+                            name: response.data[0].full_name || '',
                             email: response.data[0].email || '',
                             phone: response.data[0].phone || '',
                             address: response.data[0].address || '',
                             postal_code: response.data[0].postal_code || '',
                             country: countryCode,
                         };
-                        
+
                         // Store original for comparison
                         this.originalUserDetail = { ...this.userDetail };
                         
@@ -747,8 +746,10 @@ export default {
                         });
 
                         // Map order items to cart items with product details
-                        this.cart = response.data.map(orderItem => {
+                        this.cart = response.data/* .map(orderItem => {
+                            
                             let product = productData.find(p => p.id === orderItem.product_id);
+                            console.log('orderItem', orderItem);
 
                             return {
                                 ...orderItem,
@@ -756,7 +757,7 @@ export default {
                                 price: parseFloat(product?.price || orderItem.price || 0),
                                 image: product?.image ? require(`@/assets/${product.image}`) : require('@/assets/product-category/electronics/electronics-1.jpg'),
                             };
-                        });
+                        }) */;
                     } else {
                         // No orders found
                         this.cart = [];
@@ -783,6 +784,7 @@ export default {
         },
 
         increaseQuantity(item) {
+            console.log('item', item);
             if (Object.keys(this.user).length === 0) {
                 alert("Please Login first");
                 return;
@@ -803,7 +805,8 @@ export default {
                 quantity: item.quantity,
                 total_amount: item.price * item.quantity
             }
-
+            console.log('productData', productData);
+            
             updateOrderRecord(productData)
                 .then((response) => {
                     if (response.success) {
@@ -946,150 +949,31 @@ export default {
             this.loading = false;
             this.processingPayment = false;
             
-            // Load PayPal SDK when PayPal is selected
-            if (this.selectedPaymentMethod === 'paypal' && !this.paypalLoaded) {
-                this.loadPayPalSDK();
-            }
-        },
-        
-        loadPayPalSDK() {
-            // Check if PayPal SDK is already loaded
-            if (window.paypal) {
-                this.initializePayPal();
-                return;
-            }
-            
-            // Load PayPal SDK script
-            const script = document.createElement('script');
-            script.src = `https://www.paypal.com/sdk/js?client-id=${process.env.VUE_APP_PAYPAL_CLIENT_ID || 'YOUR_PAYPAL_CLIENT_ID'}&currency=USD`;
-            script.async = true;
-            script.onload = () => {
-                this.paypalLoaded = true;
+            // Mount Stripe card element when Stripe is selected
+            if (this.selectedPaymentMethod === 'stripe' && this.stripe && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                // Wait for Vue to render the card element div
                 this.$nextTick(() => {
-                    this.initializePayPal();
-                });
-            };
-            script.onerror = () => {
-                this.errorMessage = 'Failed to load PayPal SDK. Please try again.';
-                this.paypalLoaded = false;
-            };
-            document.head.appendChild(script);
-        },
-        
-        async initializePayPal() {
-            if (!window.paypal || !this.$el) return;
-            
-            // Validate personal information first
-            Object.keys(this.userDetail).forEach(key => {
-                this.validateField(key);
-            });
-
-            if (Object.keys(this.formErrors).length > 0) {
-                this.errorMessage = 'Please fill in all required fields correctly';
-                this.paypalLoaded = false;
-                return;
-            }
-
-            // Validate cart
-            if (!this.cart || this.cart.length === 0) {
-                this.errorMessage = 'Your cart is empty';
-                this.paypalLoaded = false;
-                return;
-            }
-            
-            // Clear previous PayPal button if exists
-            const container = document.getElementById('paypal-button-container');
-            if (container) {
-                container.innerHTML = '';
-            }
-            
-            try {
-                // Create PayPal order first
-                const orderData = await createPayPalOrder({
-                    cart: this.cart.map(item => ({
-                        id: item.id,
-                        product_id: item.product_id,
-                        price: item.price,
-                        quantity: item.quantity,
-                        name: item.name
-                    })),
-                    userDetail: {
-                        ...this.userDetail,
-                        user_id: this.user.id
-                    }
-                });
-                
-                if (!orderData.success || !orderData.orderId) {
-                    this.errorMessage = 'Failed to create PayPal order. Please try again.';
-                    return;
-                }
-                
-                this.paypalOrderId = orderData.orderId;
-                
-                // Render PayPal button
-                window.paypal.Buttons({
-                    style: {
-                        layout: 'vertical',
-                        color: 'blue',
-                        shape: 'rect',
-                        label: 'paypal'
-                    },
-                    createOrder: async () => {
-                        // Return the order ID from our backend
-                        return this.paypalOrderId;
-                    },
-                    onApprove: async (data) => {
-                        try {
-                            this.processingPayment = true;
-                            this.loading = true;
-                            
-                            // Capture the order on backend
-                            const captureData = await capturePayPalOrder({
-                                orderId: data.orderID,
-                                cart: this.cart.map(item => ({
-                                    id: item.id,
-                                    product_id: item.product_id
-                                })),
-                                userDetail: {
-                                    ...this.userDetail,
-                                    user_id: this.user.id
+                    this.$nextTick(() => {
+                        requestAnimationFrame(() => {
+                            setTimeout(() => {
+                                if (this.$el && this.stripe && this.elements && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                                    const ref = this.$refs.cardElementRef;
+                                    if (ref && ref.parentNode && ref.isConnected) {
+                                        this.mountCardElement();
+                                    } else {
+                                        // Retry after a delay if ref not ready
+                                        setTimeout(() => {
+                                            const retryRef = this.$refs.cardElementRef;
+                                            if (this.$el && this.stripe && this.elements && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted && retryRef && retryRef.parentNode && retryRef.isConnected) {
+                                                this.mountCardElement();
+                                            }
+                                        }, 300);
+                                    }
                                 }
-                            });
-                            
-                            if (captureData.success) {
-                                this.paymentSuccess = true;
-                                setTimeout(() => {
-                                    this.$router.push('/order-success');
-                                    this.cart = [];
-                                }, 1500);
-                            } else {
-                                this.errorMessage = captureData.error || 'Failed to capture PayPal payment. Please try again.';
-                                this.loading = false;
-                                this.processingPayment = false;
-                            }
-                        } catch (error) {
-                            console.error('PayPal Capture Error:', error);
-                            this.errorMessage = error.response?.data?.error || error.message || 'There was an error processing your PayPal payment. Please try again.';
-                            this.loading = false;
-                            this.processingPayment = false;
-                        }
-                    },
-                    onError: (err) => {
-                        console.error('PayPal Error:', err);
-                        this.errorMessage = 'An error occurred with PayPal. Please try again or select another payment method.';
-                        this.processingPayment = false;
-                        this.loading = false;
-                    },
-                    onCancel: () => {
-                        this.errorMessage = 'PayPal payment was cancelled.';
-                        this.processingPayment = false;
-                        this.loading = false;
-                    }
-                }).render('#paypal-button-container');
-                
-            } catch (error) {
-                console.error('PayPal Initialization Error:', error);
-                this.errorMessage = error.response?.data?.error || error.message || 'Failed to initialize PayPal. Please try again.';
+                            }, 300);
+                        });
+                    });
+                });
             }
         },
         
@@ -1107,9 +991,6 @@ export default {
             // Validate payment method specific requirements
             if (this.selectedPaymentMethod === 'stripe') {
                 return this.loading || !this.isValidForm || this.processingPayment || !this.cardElement;
-            } else if (this.selectedPaymentMethod === 'paypal') {
-                // PayPal button handles its own submission - no submit button needed
-                return false;
             }
             
             // For COD, only check loading states
@@ -1150,7 +1031,6 @@ export default {
                 await this.handleStripePayment();
                 return;
             }
-            // PayPal is handled separately via the PayPal button
         },
         
         async handleCOD() {
@@ -1158,6 +1038,8 @@ export default {
                 // Create order with COD payment method
                 // Update order status to 'Ordered' with COD payment method
                 // For COD, we don't need payment processing, just update order status
+                console.log('this.cart', this.cart);
+                
                 const response = await createStripe({ 
                     cart: this.cart.map(item => ({
                         id: item.id,
@@ -1165,6 +1047,7 @@ export default {
                         price: item.price,
                         quantity: item.quantity
                     })), 
+                    orderId: this.cart[0].order_id,
                     userDetail: {
                         ...this.userDetail,
                         user_id: this.user.id
@@ -1224,8 +1107,11 @@ export default {
                     return;
                 }
 
+                console.log('this.cart', this.cart);
+
                 // Call backend API to create a Stripe session
                 const response = await createStripe({ 
+                    orderNumber: this.cart[0].order_number,
                     cart: this.cart.map(item => ({
                         id: item.id,
                         product_id: item.product_id,
@@ -1290,8 +1176,8 @@ export default {
         },
 
         mountCardElement(retryCount = 0) {
-            // Safety check: don't mount if component is being destroyed
-            if (!this.$el || !this.elements || !this.stripe || !this.isComponentMounted) {
+            // Safety check: don't mount if component is being destroyed or stripe is not selected
+            if (!this.$el || !this.elements || !this.stripe || !this.isComponentMounted || this.selectedPaymentMethod !== 'stripe') {
                 return;
             }
 
@@ -1316,10 +1202,10 @@ export default {
             // Verify element exists and is valid before proceeding
             if (!cardElement) {
                 console.warn('Card element ref not found, retrying...');
-                if (retryCount < MAX_RETRIES) {
+                if (retryCount < MAX_RETRIES && this.selectedPaymentMethod === 'stripe') {
                     const delay = Math.min(100 * (retryCount + 1), 500);
                     setTimeout(() => {
-                        if (this.$el && this.elements && this.stripe && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                        if (this.$el && this.elements && this.stripe && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                             this.mountCardElement(retryCount + 1);
                         }
                     }, delay);
@@ -1330,11 +1216,11 @@ export default {
             // Verify element is actually connected to the document
             if (!cardElement.parentNode || !cardElement.isConnected || !this.$el.contains(cardElement)) {
                 // Retry after a delay if element not found or not in DOM
-                if (retryCount < MAX_RETRIES && this.elements && this.$el && this.stripe) {
+                if (retryCount < MAX_RETRIES && this.elements && this.$el && this.stripe && this.selectedPaymentMethod === 'stripe') {
                     const delay = Math.min(100 * (retryCount + 1), 500); // Exponential backoff, max 500ms
                     setTimeout(() => {
-                        // Check if component is still mounted before retrying
-                        if (this.$el && this.elements && this.stripe && !this.cardElement) {
+                        // Check if component is still mounted and stripe is still selected before retrying
+                        if (this.$el && this.elements && this.stripe && this.selectedPaymentMethod === 'stripe' && !this.cardElement) {
                             this.mountCardElement(retryCount + 1);
                         }
                     }, delay);
@@ -1353,10 +1239,10 @@ export default {
                     // Triple-check element is still valid and connected before creating
                     if (!cardElement || !cardElement.parentNode || !cardElement.isConnected || !this.$el.contains(cardElement)) {
                         this.isMountingCard = false;
-                        if (retryCount < MAX_RETRIES) {
+                        if (retryCount < MAX_RETRIES && this.selectedPaymentMethod === 'stripe') {
                             const delay = Math.min(100 * (retryCount + 1), 500);
                             setTimeout(() => {
-                                if (this.$el && this.elements && this.stripe && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                                if (this.$el && this.elements && this.stripe && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                                     this.mountCardElement(retryCount + 1);
                                 }
                             }, delay);
@@ -1374,10 +1260,10 @@ export default {
                     if (!cardElement || !cardElement.parentNode || !cardElement.parentNode.appendChild) {
                         this.isMountingCard = false;
                         console.warn('Card element invalid or parent not ready before creating Stripe element');
-                        if (retryCount < MAX_RETRIES && this.isComponentMounted) {
+                        if (retryCount < MAX_RETRIES && this.isComponentMounted && this.selectedPaymentMethod === 'stripe') {
                             const delay = Math.min(100 * (retryCount + 1), 500);
                             setTimeout(() => {
-                                if (this.$el && this.elements && this.stripe && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                                if (this.$el && this.elements && this.stripe && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                                     this.mountCardElement(retryCount + 1);
                                 }
                             }, delay);
@@ -1388,10 +1274,10 @@ export default {
                     // Final check before creating card element - ensure element is connected to document
                     if (!cardElement || !cardElement.parentNode || !cardElement.isConnected || !this.$el.contains(cardElement)) {
                         this.isMountingCard = false;
-                        if (retryCount < MAX_RETRIES) {
+                        if (retryCount < MAX_RETRIES && this.selectedPaymentMethod === 'stripe') {
                             const delay = Math.min(100 * (retryCount + 1), 500);
                             setTimeout(() => {
-                                if (this.$el && this.elements && this.stripe && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                                if (this.$el && this.elements && this.stripe && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                                     this.mountCardElement(retryCount + 1);
                                 }
                             }, delay);
@@ -1421,10 +1307,10 @@ export default {
                         if (!cardElement || !cardElement.parentNode || !cardElement.isConnected || !this.$el.contains(cardElement)) {
                             this.isMountingCard = false;
                             console.warn('Card element disconnected before mount');
-                            if (retryCount < MAX_RETRIES) {
+                            if (retryCount < MAX_RETRIES && this.selectedPaymentMethod === 'stripe') {
                                 const delay = Math.min(200 * (retryCount + 1), 1000);
                                 setTimeout(() => {
-                                    if (this.$el && this.elements && this.stripe && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                                    if (this.$el && this.elements && this.stripe && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                                         this.mountCardElement(retryCount + 1);
                                     }
                                 }, delay);
@@ -1444,10 +1330,10 @@ export default {
                         if (!cardElement.parentNode || !cardElement.parentNode.appendChild) {
                             this.isMountingCard = false;
                             console.warn('Card element parent node is not ready');
-                            if (retryCount < MAX_RETRIES && this.isComponentMounted) {
+                            if (retryCount < MAX_RETRIES && this.isComponentMounted && this.selectedPaymentMethod === 'stripe') {
                                 const delay = Math.min(200 * (retryCount + 1), 1000);
                                 setTimeout(() => {
-                                    if (this.$el && this.elements && this.stripe && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                                    if (this.$el && this.elements && this.stripe && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                                         this.mountCardElement(retryCount + 1);
                                     }
                                 }, delay);
@@ -1472,7 +1358,9 @@ export default {
                         try {
                             // Mount the Stripe card element
                             // The container must be empty to avoid insertBefore errors
+                            console.log('Attempting to mount Stripe card element to:', cardElement);
                             card.mount(cardElement);
+                            console.log('Stripe card element mounted successfully');
 
                             // Listen to form changes for validation
                             card.on('change', (event) => {
@@ -1518,10 +1406,10 @@ export default {
                             // If mount fails due to insertBefore (DOM not ready), retry
                             if (mountError.message && (mountError.message.includes('insertBefore') || mountError.message.includes('null'))) {
                                 console.warn('Stripe mount failed - DOM element not ready, retrying:', mountError);
-                                if (retryCount < MAX_RETRIES && this.isComponentMounted) {
+                                if (retryCount < MAX_RETRIES && this.isComponentMounted && this.selectedPaymentMethod === 'stripe') {
                                     const delay = Math.min(200 * (retryCount + 1), 1000);
                                     setTimeout(() => {
-                                        if (this.$el && this.elements && this.stripe && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                                        if (this.$el && this.elements && this.stripe && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                                             this.mountCardElement(retryCount + 1);
                                         }
                                     }, delay);
@@ -1548,11 +1436,11 @@ export default {
                     // Handle errors gracefully - might be due to DOM being removed or not ready
                     if (error.message && (error.message.includes('insertBefore') || error.message.includes('null'))) {
                         console.warn('Stripe card element mount failed - DOM may have been removed or not ready:', error);
-                        // Retry if component is still mounted
-                        if (retryCount < MAX_RETRIES && this.isComponentMounted) {
+                        // Retry if component is still mounted and stripe is still selected
+                        if (retryCount < MAX_RETRIES && this.isComponentMounted && this.selectedPaymentMethod === 'stripe') {
                             const delay = Math.min(200 * (retryCount + 1), 1000);
                             setTimeout(() => {
-                                if (this.$el && this.elements && this.stripe && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                                if (this.$el && this.elements && this.stripe && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
                                     this.mountCardElement(retryCount + 1);
                                 }
                             }, delay);
@@ -1605,34 +1493,36 @@ export default {
             },
         });
 
-        // The watcher will automatically mount the card element when elements is set
-        // But we also try mounting here after DOM is ready as a fallback
-        this.$nextTick(() => {
+        // The watcher will automatically mount the card element when elements is set and stripe is selected
+        // But we also try mounting here after DOM is ready as a fallback (only if stripe is selected)
+        if (this.selectedPaymentMethod === 'stripe') {
             this.$nextTick(() => {
-                // Use requestAnimationFrame to ensure DOM is painted
-                requestAnimationFrame(() => {
-                    // Add a delay to ensure DOM is fully ready and element is rendered
-                    setTimeout(() => {
-                        // Safety check: ensure component is still mounted and ref exists
-                        if (this.$el && this.stripe && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
-                            // Verify the ref exists and is in the DOM before mounting
-                            const ref = this.$refs.cardElementRef;
-                            if (ref && ref.parentNode && ref.isConnected) {
-                                this.mountCardElement();
-                            } else {
-                                // Retry after a short delay if ref not ready
-                                setTimeout(() => {
-                                    const retryRef = this.$refs.cardElementRef;
-                                    if (this.$el && this.stripe && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted && retryRef && retryRef.parentNode && retryRef.isConnected) {
-                                        this.mountCardElement();
-                                    }
-                                }, 300);
+                this.$nextTick(() => {
+                    // Use requestAnimationFrame to ensure DOM is painted
+                    requestAnimationFrame(() => {
+                        // Add a delay to ensure DOM is fully ready and element is rendered
+                        setTimeout(() => {
+                            // Safety check: ensure component is still mounted and ref exists
+                            if (this.$el && this.stripe && this.elements && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
+                                // Verify the ref exists and is in the DOM before mounting
+                                const ref = this.$refs.cardElementRef;
+                                if (ref && ref.parentNode && ref.isConnected) {
+                                    this.mountCardElement();
+                                } else {
+                                    // Retry after a short delay if ref not ready
+                                    setTimeout(() => {
+                                        const retryRef = this.$refs.cardElementRef;
+                                        if (this.$el && this.stripe && this.elements && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted && retryRef && retryRef.parentNode && retryRef.isConnected) {
+                                            this.mountCardElement();
+                                        }
+                                    }, 300);
+                                }
                             }
-                        }
-                    }, 300);
+                        }, 300);
+                    });
                 });
             });
-        });
+        }
     },
 
     beforeUnmount() {
@@ -2521,8 +2411,7 @@ export default {
     background: var(--bg-primary);
     transition: all 0.3s ease;
     min-height: 48px;
-    display: flex;
-    align-items: center;
+    position: relative;
 }
 
 .card-element-wrapper:focus-within {
@@ -2770,63 +2659,6 @@ export default {
     font-size: 0.875rem;
     color: var(--text-secondary);
     font-style: italic;
-}
-
-/* PayPal Information */
-.paypal-info {
-    margin-top: 1.5rem;
-    margin-bottom: 1.5rem;
-}
-
-.paypal-message {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1.5rem;
-    background: rgba(0, 112, 210, 0.1);
-    border: 2px solid rgba(0, 112, 210, 0.3);
-    border-radius: 12px;
-}
-
-.paypal-message svg {
-    color: #0070d2;
-    flex-shrink: 0;
-    margin-top: 0.25rem;
-}
-
-.paypal-message p {
-    margin: 0.5rem 0;
-    color: var(--text-primary);
-    line-height: 1.6;
-}
-
-.paypal-message p:first-child {
-    margin-top: 0;
-}
-
-.paypal-note {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.paypal-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    padding: 2rem;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-}
-
-#paypal-button-container {
-    margin: 1.5rem 0;
-    min-height: 50px;
-}
-
-#paypal-button-container iframe {
-    min-height: 50px;
 }
 
 /* Error Message */
@@ -3107,15 +2939,13 @@ export default {
         height: 40px;
     }
 
-    .cod-message,
-    .paypal-message {
+    .cod-message {
         padding: 1rem;
         flex-direction: column;
         text-align: center;
     }
 
-    .cod-message svg,
-    .paypal-message svg {
+    .cod-message svg {
         align-self: center;
     }
 }

@@ -306,6 +306,7 @@ export const getProductOrderData = async (data) => {
 };
 
 export const orderData = async (data) => {
+    console.log('orderData service', data);
     try {
         const response = await api.post(authUrl + 'order', data);
         return response.data;
@@ -365,22 +366,34 @@ export const createStripe= async (data) => {
     }
 };
 
-export const createPayPalOrder = async (data) => {
+
+// Products API
+export const getProducts = async () => {
     try {
-        const response = await api.post(authUrl + 'create-paypal-order', data);
+        const response = await api.get('/api/products');
         return response.data;
     } catch (error) {
-        console.error('Error creating PayPal order:', error);
+        console.error('Error fetching products:', error);
         throw error;
     }
 };
 
-export const capturePayPalOrder = async (data) => {
+export const getProductById = async (id) => {
     try {
-        const response = await api.post(authUrl + 'capture-paypal-order', data);
+        const response = await api.get(`/api/products/${id}`);
         return response.data;
     } catch (error) {
-        console.error('Error capturing PayPal order:', error);
+        console.error('Error fetching product:', error);
+        throw error;
+    }
+};
+
+export const getProductByCode = async (product_code) => {
+    try {
+        const response = await api.get(`/api/products/code/${product_code}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching product:', error);
         throw error;
     }
 };

@@ -516,26 +516,75 @@ router.post("/reset-password/:token", async (req, res) => {
     }
 });
 
-// Get Product Order route
+// Get Product Order route - Get order details for a specific product in user's cart
 router.post("/get-product-order", async (req, res) => {
     try {
-        const { user_id, product_id } = req.body;
+        const { user_id, product_code } = req.body;
 
-        const result = await pool.query(
-            `SELECT * FROM orders WHERE user_id = $1 AND product_id = $2 AND status = 'Pending'`,
-            [user_id, product_id]
-        );
+        if (!user_id) {
+            return res.status(statusCode.BAD_REQUEST.code).json({
+                success: false,
+                message: "user_id is required"
+            });
+        }
+
+        // First, get the product by product_code to get product_id
+        let productId = null;
+        if (product_code) {
+            const productResult = await pool.query(
+                `SELECT id FROM products WHERE product_code = $1`,
+                [product_code]
+            );
+            if (productResult.rows.length > 0) {
+                productId = productResult.rows[0].id;
+            }
+        }
+
+        // Query order_details for this user and product
+        // Also check if they're part of a pending order
+        let result;
+        if (productId) {
+            result = await pool.query(
+                `SELECT 
+                    od.id,
+                    od.user_id,
+                    od.product_id,
+                    od.order_number,
+                    od.base_price,
+                    od.quantity,
+                    od.total_amount,
+                    od.created_at,
+                    od.updated_at,
+                    p.product_code,
+                    p.name as product_name,
+                    p.price as current_price,
+                    o.id as order_id,
+                    o.status as order_status,
+                    o.total_amount as order_total
+                FROM order_details od
+                LEFT JOIN products p ON od.product_id = p.id
+                LEFT JOIN orders o ON o.id = od.order_id
+                WHERE od.user_id = $1 AND od.product_id = $2
+                AND (o.status = 'Pending' OR o.status IS NULL)
+                ORDER BY od.created_at DESC
+                LIMIT 1`,
+                [user_id, productId]
+            );
+        } else {
+            // If no product_code provided, return empty
+            result = { rows: [] };
+        }
 
         if (result.rows.length > 0) {
             return res.status(statusCode.SUCCESS.code).json({
                 success: true,
-                message: "Orders details fetched successfully!",
+                message: "Order details fetched successfully!",
                 data: result.rows,
             });
         } else {
             return res.status(statusCode.SUCCESS.code).json({
                 success: true,
-                message: "No orders found for this user.",
+                message: "No orders found for this product.",
                 data: [],
             });
         }
@@ -543,7 +592,7 @@ router.post("/get-product-order", async (req, res) => {
         console.error("Order details error:", error);
         res.status(statusCode.INTERNAL_SERVER_ERROR.code).json({
             success: false,
-            message: "An error occurred while orders insert.",
+            message: "An error occurred while fetching order details.",
             error: error.message,
         });
     }
@@ -553,10 +602,27 @@ router.post("/get-product-order", async (req, res) => {
 router.post("/get-order", async (req, res) => {
     try {
         const { user_id } = req.body;
-
+        
         const result = await pool.query(
-            `SELECT o.*, o.id, u.name, u.email, u.address, u.country, u.postal_code, u.phone FROM 
-                orders o JOIN users u ON o.user_id = u.id WHERE o.user_id = $1 AND status = 'Pending'`,
+            `SELECT 
+                COALESCE(
+                    o.id,
+                    FIRST_VALUE(o.id) OVER (PARTITION BY od.user_id ORDER BY od.created_at)
+                ) AS order_id,
+                COALESCE(
+                    o.status,
+                    FIRST_VALUE(o.status) OVER (PARTITION BY od.user_id ORDER BY od.created_at)
+                ) AS order_status,
+                u.name as full_name, u.email, u.address, u.country, u.postal_code, u.phone,
+                od.order_number,
+                od.*,
+                p.*
+                FROM order_details od
+                LEFT JOIN orders o ON o.id = od.order_id AND o.status = 'Pending'
+                JOIN users u ON od.user_id = u.id 
+                JOIN products p ON od.product_id = p.id
+                WHERE od.user_id = $1 AND o.status = 'Pending';
+            `,
             [user_id]
         );
 
@@ -583,43 +649,150 @@ router.post("/get-order", async (req, res) => {
     }
 });
 
-// Order route
+// Order route - Add item to cart (order_details)
 router.post("/order", async (req, res) => {
     try {
         const data = req.body;
+        
+        let orderNumber = data.orderNumber;
+        const { user_id, product_id, price, quantity = 1 } = data;
         let result;
 
-        // Only check for Pending orders - if order is completed/ordered, create a new one
-        const productExist = await pool.query(
-            `SELECT id, price, quantity, total_amount FROM orders WHERE user_id = $1 AND product_id = $2 AND status = 'Pending'`,
-            [data.user_id, data.product_id]
+        // Validate required fields
+        if (!user_id || !product_id || !price) {
+            return res.status(statusCode.BAD_REQUEST.code).json({
+                success: false,
+                message: 'Missing required fields: user_id, product_id, and price are required',
+            });
+        }
+
+        // Calculate total amount for this line item
+        const base_price = parseFloat(price);
+        const item_quantity = parseInt(quantity) || 1;
+        const total_amount = parseFloat((base_price * item_quantity).toFixed(2));
+
+        // First, check if there's ANY existing pending order for this user
+        // This ensures all items are added to the same cart/order
+        let existingOrder = await pool.query(
+            `SELECT id, order_number FROM orders 
+             WHERE user_id = $1 AND status = 'Pending'
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [user_id]
         );
 
-        const product = productExist.rows[0];
+        let orderId = null;
+        
+        // If we found an existing pending order, use it (ignore the orderNumber from request)
+        // This ensures all "Add to cart" clicks add to the same order
+        if (existingOrder.rows.length > 0) {
+            orderId = existingOrder.rows[0].id;
+            orderNumber = existingOrder.rows[0].order_number;
+        }
 
-        if (product && product.id) {
-            // Update existing Pending order
-            result = await pool.query(
-                `UPDATE orders SET quantity = ${product.quantity + 1}, 
-                    total_amount = ${(product.quantity + 1) * product.price}
-                    WHERE user_id = $1 AND product_id = $2 AND status = 'Pending' RETURNING product_id`,
-                [data.user_id, data.product_id]
+        // If no pending order found, generate a new order_number
+        if (!orderNumber) {
+            orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+        }
+
+        // Check if this product already exists in order_details for pending orders
+        let existingDetail = null;
+        if (orderId) {
+            // Get all order_details for this user that are part of pending orders
+            const allOrderDetails = await pool.query(
+                `SELECT od.id, od.product_id, od.base_price, od.quantity, od.total_amount, od.order_number
+                 FROM order_details od
+                 WHERE od.order_id = $1 AND od.product_id = $2
+                 LIMIT 1`,
+                [orderId, product_id]
             );
-        } else {
-            // Create new order entry (either no order exists or existing order is completed)
+            
+            if (allOrderDetails.rows.length > 0) {
+                existingDetail = allOrderDetails.rows[0];
+            }
+        }
+
+        if (existingDetail) {
+            // Update existing order_detail (increase quantity)
+            const newQuantity = existingDetail.quantity + item_quantity;
+            const newTotalAmount = parseFloat((existingDetail.base_price * newQuantity).toFixed(2));
+
             result = await pool.query(
-                `INSERT INTO orders (user_id, product_id, price, quantity, total_amount, status, created_at, 
-                    updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-                RETURNING product_id`,
-                [data.user_id, data.product_id, data.price, data.quantity, data.price, 'Pending']
+                `UPDATE order_details 
+                 SET quantity = $1, total_amount = $2, order_number = $3, updated_at = NOW()
+                 WHERE id = $4
+                 RETURNING id, base_price, quantity, total_amount, order_number`,
+                [newQuantity, newTotalAmount, orderNumber, existingDetail.id]
+            );
+
+            // Recalculate and update the order total_amount (sum of all order_details for this order)
+            const orderTotalResult = await pool.query(
+                `SELECT COALESCE(SUM(od.total_amount), 0) as total
+                 FROM order_details od
+                 WHERE od.order_id = $1`,
+                [orderId]
+            );
+
+            const newOrderTotal = parseFloat(orderTotalResult.rows[0].total);
+
+            await pool.query(
+                `UPDATE orders 
+                 SET total_amount = $1, updated_at = NOW()
+                 WHERE id = $2`,
+                [newOrderTotal, orderId]
+            );
+
+        } else {
+            // If no existing order, create a new one first
+            if (!orderId) {
+                const newOrderResult = await pool.query(
+                    `INSERT INTO orders (order_number, user_id, total_amount, payment_type, status, created_at, updated_at)
+                     VALUES ($1, $2, $3, NULL, 'Pending', NOW(), NOW())
+                     RETURNING id`,
+                    [orderNumber, user_id, total_amount]
+                );
+                orderId = newOrderResult.rows[0].id;
+            }
+
+            // Create new order_detail entry with order_number and order_id
+            result = await pool.query(
+                `INSERT INTO order_details (order_id, order_number, user_id, product_id, base_price, quantity, total_amount, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+                 RETURNING id, base_price, quantity, total_amount, order_number`,
+                [orderId, orderNumber, user_id, product_id, base_price, item_quantity, total_amount]
+            );
+
+            // Recalculate and update the order total_amount (sum of all order_details for this order)
+            const orderTotalResult = await pool.query(
+                `SELECT COALESCE(SUM(od.total_amount), 0) as total
+                 FROM order_details od
+                 WHERE od.order_id = $1`,
+                [orderId]
+            );
+
+            const newOrderTotal = parseFloat(orderTotalResult.rows[0].total);
+
+            await pool.query(
+                `UPDATE orders 
+                 SET total_amount = $1, updated_at = NOW()
+                 WHERE id = $2`,
+                [newOrderTotal, orderId]
             );
         }
 
         if (result.rows.length > 0) {
+            
+            await pool.query(
+                `UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW()
+                WHERE id = $2`,
+                [item_quantity, product_id]
+            );
+
             return res.status(statusCode.SUCCESS.code).json({
                 success: true,
                 message: 'Order added successfully!',
+                data: result.rows[0],
+                orderNumber: orderNumber // Include orderNumber for frontend to store
             });
         } else {
             return res.status(statusCode.BAD_REQUEST.code).json({
@@ -630,52 +803,110 @@ router.post("/order", async (req, res) => {
     } catch (error) {
         console.error("Order error:", error);
         res.status(statusCode.INTERNAL_SERVER_ERROR.code).json({
+            success: false,
             message: statusCode.INTERNAL_SERVER_ERROR.message,
-            error: "An error occurred during order."
+            error: error.message || "An error occurred during order."
         });
     }
 });
 
-// Order record update
+// Order record update - Update order_details quantity and total_amount
 router.put("/order-update", async (req, res) => {
     try {
+        const { user_id, product_id, quantity, total_amount, type } = req.body;
 
-        const { user_id, product_id, quantity, total_amount } = req.body;
+        // Validate required fields
+        if (!user_id || !product_id || !quantity || total_amount === undefined) {
+            return res.status(statusCode.BAD_REQUEST.code).json({
+                success: false,
+                message: 'Missing required fields: user_id, product_id, quantity, and total_amount are required',
+            });
+        }
 
-        const orderExist = await pool.query(
-            `SELECT * FROM orders WHERE user_id = $1 AND product_id = $2`,
+        // Find the order_detail for this user and product
+        // Also check if it's part of a pending order
+        const orderDetailResult = await pool.query(
+            `SELECT od.id, od.base_price, od.quantity, od.total_amount, od.order_number, od.order_id, o.status as order_status
+             FROM order_details od
+             LEFT JOIN orders o ON o.id = od.order_id
+             WHERE od.user_id = $1 AND od.product_id = $2
+             AND (o.status = 'Pending' OR o.status IS NULL)
+             ORDER BY od.created_at DESC
+             LIMIT 1`,
             [user_id, product_id]
         );
 
-        if (orderExist.rows.length > 0) {
-            const updateOrder = await pool.query(
-                `UPDATE orders SET quantity = ${quantity}, total_amount = ${total_amount} 
-                    WHERE user_id = $1 AND product_id = $2 RETURNING *
-                `, [user_id, product_id]
-            );
-
-            if (updateOrder && updateOrder.rows[0]) {
-                return res.status(statusCode.SUCCESS.code).json({
-                    success: true,
-                    message: 'Order updated successfully!',
-                });
-            } else {
-                return res.status(statusCode.SUCCESS.code).json({
-                    success: false,
-                    message: 'Order updated failed',
-                });
-            }
-        } else {
-            return res.status(statusCode.SUCCESS.code).json({
+        if (orderDetailResult.rows.length === 0) {
+            return res.status(statusCode.BAD_REQUEST.code).json({
                 success: false,
-                message: 'Order not exist',
+                message: 'Order detail not found for this product',
+            });
+        }
+
+        const orderDetail = orderDetailResult.rows[0];
+        const parsedQuantity = parseInt(quantity);
+        const parsedTotalAmount = parseFloat(total_amount);
+
+        // Update order_details (preserve order_number)
+        const updateResult = await pool.query(
+            `UPDATE order_details 
+             SET quantity = $1, total_amount = $2, updated_at = NOW()
+             WHERE id = $3
+             RETURNING id, quantity, total_amount, order_number`,
+            [parsedQuantity, parsedTotalAmount, orderDetail.id]
+        );
+
+        if (updateResult.rows.length > 0) {
+            // If this order_detail is part of a pending order, update the order total
+            if (orderDetail.order_id) {
+                // Recalculate order total from all order_details in this order
+                const orderTotalResult = await pool.query(
+                    `SELECT COALESCE(SUM(od.total_amount), 0) as total
+                     FROM order_details od
+                     WHERE od.order_id = $1`,
+                    [orderDetail.order_id]
+                );
+
+                const newOrderTotal = parseFloat(orderTotalResult.rows[0].total);
+
+                await pool.query(
+                    `UPDATE orders 
+                     SET total_amount = $1, updated_at = NOW()
+                     WHERE id = $2`,
+                    [newOrderTotal, orderDetail.order_id]
+                );
+
+                if (type === 'increase') {
+                    await pool.query(
+                        `UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW()
+                        WHERE id = $2`,
+                        [1, product_id]
+                    );
+                } else if (type === 'decrease') {
+                    await pool.query(
+                        `UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW()
+                        WHERE id = $2`,
+                        [1, product_id]
+                    );
+                }
+            }
+
+            return res.status(statusCode.SUCCESS.code).json({
+                success: true,
+                message: 'Order updated successfully!',
+                data: updateResult.rows[0]
+            });
+        } else {
+            return res.status(statusCode.BAD_REQUEST.code).json({
+                success: false,
+                message: 'Order update failed',
             });
         }
     } catch (error) {
         console.error("Order record error:", error);
         return res.status(statusCode.INTERNAL_SERVER_ERROR.code).json({
             success: false,
-            message: "An error occurred while fetching orders update.",
+            message: "An error occurred while updating the order.",
             error: error.message,
         });
     }
@@ -687,34 +918,67 @@ router.post("/delete-order", async (req, res) => {
 
         const { user_id, product_id } = req.body;
 
-        const orderExist = await pool.query(
-            `SELECT * FROM orders WHERE user_id = $1 AND product_id = $2`,
+        // Find the order_detail for this user and product in a pending order
+        const orderDetailResult = await pool.query(
+            `SELECT od.id, od.order_id, od.order_number
+             FROM order_details od
+             LEFT JOIN orders o ON o.id = od.order_id
+             WHERE od.user_id = $1 AND od.product_id = $2
+             AND (o.status = 'Pending' OR o.status IS NULL)
+             ORDER BY od.created_at DESC
+             LIMIT 1`,
             [user_id, product_id]
-        )
+        );
 
-        if (orderExist.rows.length > 0) {
+        if (orderDetailResult.rows.length > 0) {
+            const orderDetail = orderDetailResult.rows[0];
+            const orderId = orderDetail.order_id;
 
-            const deleteOrder = await pool.query(
-                `DELETE FROM orders WHERE user_id = $1 AND product_id = $2`,
-                [user_id, product_id]
-            )
+            // Delete the order_detail
+            await pool.query(
+                `DELETE FROM order_details WHERE id = $1`,
+                [orderDetail.id]
+            );
 
-            if (deleteOrder) {
-                return res.status(statusCode.SUCCESS.code).json({
-                    success: true,
-                    message: "Orders delete successfully!",
-                });
-            } else {
-                return res.status(statusCode.BAD_REQUEST.code).json({
-                    success: true,
-                    message: "Orders delete failed!",
-                    data: result.rows,
-                });
+            // Check if there are any remaining order_details for this order
+            const remainingDetails = await pool.query(
+                `SELECT COUNT(*) as count FROM order_details WHERE order_id = $1`,
+                [orderId]
+            );
+
+            // If no remaining order_details, delete the order as well
+            if (parseInt(remainingDetails.rows[0].count) === 0 && orderId) {
+                await pool.query(
+                    `DELETE FROM orders WHERE id = $1`,
+                    [orderId]
+                );
+            } else if (orderId) {
+                // Recalculate order total from remaining order_details
+                const orderTotalResult = await pool.query(
+                    `SELECT COALESCE(SUM(od.total_amount), 0) as total
+                     FROM order_details od
+                     WHERE od.order_id = $1`,
+                    [orderId]
+                );
+
+                const newOrderTotal = parseFloat(orderTotalResult.rows[0].total);
+
+                await pool.query(
+                    `UPDATE orders 
+                     SET total_amount = $1, updated_at = NOW()
+                     WHERE id = $2`,
+                    [newOrderTotal, orderId]
+                );
             }
+
+            return res.status(statusCode.SUCCESS.code).json({
+                success: true,
+                message: "Order item deleted successfully!",
+            });
         } else {
             return res.status(statusCode.SUCCESS.code).json({
                 success: true,
-                message: "No orders found.",
+                message: "No order item found to delete.",
                 data: [],
             });
         }
@@ -723,7 +987,7 @@ router.post("/delete-order", async (req, res) => {
         console.error("Delete order error:", error);
         res.status(statusCode.INTERNAL_SERVER_ERROR.code).json({
             success: false,
-            message: "An error occurred while orders delete.",
+            message: "An error occurred while deleting the order item.",
             error: error.message,
         });
     }
@@ -797,16 +1061,16 @@ router.post("/add-product-rating", async (req, res) => {
 });
 
 router.post('/create-stripe-session', async (req, res) => {
-    const { cart, userDetail, payment_method } = req.body;
+    const { cart, userDetail, orderId, orderNumber, payment_method } = req.body;
     const cartId = cart.map((c) => c.id);
 
     try {
         // Handle COD payment method - no Stripe processing needed
         if (payment_method === 'cod') {
             await pool.query(`
-                UPDATE orders SET status = 'Ordered' 
-                WHERE user_id = $1 AND status = 'Pending' AND id = Any($2)
-            `, [userDetail.user_id, cartId]);
+                UPDATE orders SET status = 'Processing', payment_type = 'COD'
+                WHERE user_id = $1 AND status = 'Pending' AND id = $2
+            `, [userDetail.user_id, orderId]);
 
             return res.status(200).json({
                 status: true,
@@ -825,13 +1089,13 @@ router.post('/create-stripe-session', async (req, res) => {
                 user_email: userDetail.email,
             },
         });
-
+        
         if (paymentIntent && paymentIntent.client_secret) {
 
             await pool.query(`
-                UPDATE orders SET status = 'Ordered' 
-                WHERE user_id = $1 AND status = 'Pending' AND id = Any($2)
-            `, [userDetail.user_id, cartId]);
+                UPDATE orders SET status = 'Processing', payment_type = 'Stripe' 
+                WHERE user_id = $1 AND status = 'Pending' AND order_number = $2
+            `, [userDetail.user_id, orderNumber]);
 
             return res.status(200).json({
                 status: true,
@@ -847,219 +1111,6 @@ router.post('/create-stripe-session', async (req, res) => {
     } catch (error) {
         console.error('Error:', error);
         res.status(500).send('Error creating payment intent');
-    }
-});
-
-// PayPal Order Creation
-router.post('/create-paypal-order', async (req, res) => {
-    try {
-        const { cart, userDetail } = req.body;
-        const totalAmount = cart.reduce((total, item) => total + item.price * item.quantity, 0);
-        const taxAmount = totalAmount * 0.1;
-        const finalAmount = totalAmount + taxAmount;
-
-        // PayPal API credentials
-        const clientId = process.env.PAYPAL_CLIENT_ID;
-        const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-        const baseURL = process.env.PAYPAL_MODE === 'live'
-            ? 'https://api-m.paypal.com'
-            : 'https://api-m.sandbox.paypal.com';
-
-        if (!clientId || !clientSecret) {
-            return res.status(500).json({
-                success: false,
-                error: 'PayPal credentials not configured'
-            });
-        }
-
-        // Get PayPal access token
-        const authResponse = await axios.post(
-            `${baseURL}/v1/oauth2/token`,
-            'grant_type=client_credentials',
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json',
-                },
-                auth: {
-                    username: clientId,
-                    password: clientSecret
-                }
-            }
-        );
-
-        const accessToken = authResponse.data.access_token;
-
-        // Create PayPal order
-        const orderData = {
-            intent: 'CAPTURE',
-            purchase_units: [{
-                amount: {
-                    currency_code: 'USD',
-                    value: finalAmount.toFixed(2),
-                    breakdown: {
-                        item_total: {
-                            currency_code: 'USD',
-                            value: totalAmount.toFixed(2)
-                        },
-                        tax_total: {
-                            currency_code: 'USD',
-                            value: taxAmount.toFixed(2)
-                        }
-                    }
-                },
-                items: cart.map(item => ({
-                    name: item.name || 'Product',
-                    unit_amount: {
-                        currency_code: 'USD',
-                        value: item.price.toFixed(2)
-                    },
-                    quantity: item.quantity.toString(),
-                    sku: item.product_id?.toString() || 'SKU'
-                })),
-                description: `Order for ${userDetail.name}`,
-                shipping: {
-                    name: {
-                        full_name: userDetail.name
-                    },
-                    address: {
-                        address_line_1: userDetail.address,
-                        admin_area_2: userDetail.address,
-                        postal_code: userDetail.postal_code,
-                        country_code: userDetail.country || 'US'
-                    }
-                }
-            }],
-            application_context: {
-                brand_name: 'SmartShop',
-                landing_page: 'NO_PREFERENCE',
-                user_action: 'PAY_NOW',
-                return_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/order-success`,
-                cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/checkout`
-            }
-        };
-
-        const orderResponse = await axios.post(
-            `${baseURL}/v2/checkout/orders`,
-            orderData,
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Accept': 'application/json'
-                }
-            }
-        );
-
-        if (orderResponse.data && orderResponse.data.id) {
-            // Store order ID in database for reference
-            const orderId = orderResponse.data.id;
-
-            return res.status(200).json({
-                success: true,
-                orderId: orderId,
-                orderData: orderResponse.data
-            });
-        } else {
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to create PayPal order'
-            });
-        }
-
-    } catch (error) {
-        console.error('PayPal Order Creation Error:', error.response?.data || error.message);
-        return res.status(500).json({
-            success: false,
-            error: error.response?.data?.message || error.message || 'Error creating PayPal order'
-        });
-    }
-});
-
-// PayPal Order Capture
-router.post('/capture-paypal-order', async (req, res) => {
-    try {
-        const { orderId, cart, userDetail } = req.body;
-        const cartId = cart.map((c) => c.id);
-
-        if (!orderId) {
-            return res.status(400).json({
-                success: false,
-                error: 'Order ID is required'
-            });
-        }
-
-        // PayPal API credentials
-        const clientId = process.env.PAYPAL_CLIENT_ID;
-        const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-        const baseURL = process.env.PAYPAL_MODE === 'live'
-            ? 'https://api-m.paypal.com'
-            : 'https://api-m.sandbox.paypal.com';
-
-        if (!clientId || !clientSecret) {
-            return res.status(500).json({
-                success: false,
-                error: 'PayPal credentials not configured'
-            });
-        }
-
-        // Get PayPal access token
-        const authResponse = await axios.post(
-            `${baseURL}/v1/oauth2/token`,
-            'grant_type=client_credentials',
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json',
-                },
-                auth: {
-                    username: clientId,
-                    password: clientSecret
-                }
-            }
-        );
-
-        const accessToken = authResponse.data.access_token;
-
-        // Capture the PayPal order
-        const captureResponse = await axios.post(
-            `${baseURL}/v2/checkout/orders/${orderId}/capture`,
-            {},
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Accept': 'application/json'
-                }
-            }
-        );
-
-        if (captureResponse.data && captureResponse.data.status === 'COMPLETED') {
-            // Update order status in database
-            await pool.query(`
-                UPDATE orders SET status = 'Ordered' 
-                WHERE user_id = $1 AND status = 'Pending' AND id = Any($2)
-            `, [userDetail.user_id, cartId]);
-
-            return res.status(200).json({
-                success: true,
-                orderId: orderId,
-                captureData: captureResponse.data
-            });
-        } else {
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to capture PayPal order',
-                details: captureResponse.data
-            });
-        }
-
-    } catch (error) {
-        console.error('PayPal Capture Error:', error.response?.data || error.message);
-        return res.status(500).json({
-            success: false,
-            error: error.response?.data?.message || error.message || 'Error capturing PayPal order'
-        });
     }
 });
 

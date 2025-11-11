@@ -1,19 +1,30 @@
 <template>
     <div class="product-detail-container">
-        <div v-if="product" class="product-wrapper">
+        <div v-if="loading" class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading product details...</p>
+        </div>
+        <div v-else-if="error" class="error-state">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M32 16V32M32 48H32.04M56 32C56 45.2548 45.2548 56 32 56C18.7452 56 8 45.2548 8 32C8 18.7452 18.7452 8 32 8C45.2548 8 56 18.7452 56 32Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p>{{ error }}</p>
+            <button class="btn-retry" @click="fetchProduct">Try Again</button>
+        </div>
+        <div v-else-if="product && product.id" class="product-wrapper">
             <section class="product-detail">
                 <div class="product-image-wrapper">
-                    <div class="product-image" @click="openImageModal" :class="{ 'image-zoom': imageZoomed }">
+                    <div class="product-image" @click="openImageModal">
                         <img :src="`/${product.image}`" :alt="product.name" @load="imageLoaded = true" />
                         <div v-if="!imageLoaded" class="image-skeleton">
                             <div class="skeleton-loader"></div>
                         </div>
-                        <div class="zoom-indicator" v-if="imageLoaded">
+                        <!-- <div class="zoom-indicator" v-if="imageLoaded">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                             <span>Click to zoom</span>
-                        </div>
+                        </div> -->
                     </div>
                     <div class="image-thumbnails" v-if="imageLoaded">
                         <div class="thumbnail-indicator">Scroll for more</div>
@@ -230,8 +241,7 @@
 
 
 <script>
-    import productData from '../../constant.json';
-    import { getProductOrderData, orderData, updateOrderRecord, getProductRatingData, productRatingData } from '../../services/api';
+    import { getProductOrderData, orderData, updateOrderRecord, getProductRatingData, productRatingData, getProductById, getProductByCode } from '../../services/api';
 
     export default {
         name: 'ProductDetail',
@@ -254,7 +264,10 @@
                 imageLoaded: false,
                 imageZoomed: false,
                 showAllReviews: false,
-                reviewTextareaFocused: false
+                reviewTextareaFocused: false,
+                loading: true,
+                error: null,
+                orderNumber: null // Store the current order number for the cart
             };
         },
         computed: {
@@ -263,10 +276,14 @@
                 return this.showAllReviews ? this.ratings : this.ratings.slice(0, 3);
             },
             hasOrderItem() {
-                if (!this.order || !Array.isArray(this.order) || this.order.length === 0) {
+                if (!this.order || !Array.isArray(this.order) || this.order.length === 0 || !this.product || !this.product.id) {
                     return false;
                 }
-                return this.order.some(orderItem => orderItem.product_id === this.$route.params.id);
+                // Check if any order item matches this product by product_id or product_code
+                return this.order.some(orderItem => 
+                    orderItem.product_id === this.product.id || 
+                    (orderItem.product_code && orderItem.product_code === this.product.product_code)
+                );
             }
         },
         methods: {
@@ -291,8 +308,61 @@
             openImageModal() {
                 this.imageZoomed = !this.imageZoomed;
             },
+            async fetchProduct() {
+                this.loading = true;
+                this.error = null;
+                this.imageLoaded = false;
+                
+                try {
+                    const productParam = this.$route.params.id;
+                    let response;
+                    
+                    // Check if it looks like a UUID (has dashes) or product_code
+                    // UUIDs typically have format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+                    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productParam);
+                    
+                    if (isUUID) {
+                        // Try fetching by ID first
+                        response = await getProductById(productParam);
+                    } else {
+                        // Try fetching by product_code
+                        response = await getProductByCode(productParam);
+                    }
+                    
+                    // If first attempt fails, try the other method
+                    if (!response.success || !response.data) {
+                        if (isUUID) {
+                            // Already tried ID, skip
+                            response = { success: false, message: 'Product not found' };
+                        } else {
+                            // Try as ID
+                            response = await getProductById(productParam);
+                        }
+                    }
+                    
+                    if (response.success && response.data) {
+                        this.product = response.data;
+                        this.id = response.data.id;
+                        // Fetch cart data after product is loaded
+                        await this.fetchCart();
+                    } else {
+                        this.error = response.message || 'Product not found';
+                        this.product = {};
+                    }
+                } catch (error) {
+                    console.error('Error fetching product:', error);
+                    this.error = 'Failed to load product. Please try again.';
+                    this.product = {};
+                } finally {
+                    this.loading = false;
+                }
+            },
             async fetchCart() {
-                this.product = productData.find(p => p.id === this.$route.params.id);
+                if (!this.product || !this.product.id) {
+                    this.order = [];
+                    this.quantity = 1;
+                    return;
+                }
                 
                 if (!this.user || !this.user.id) {
                     this.order = [];
@@ -301,12 +371,29 @@
                 }
 
                 try {
-                    const response = await getProductOrderData({ user_id: this.user.id, product_id: this.$route.params.id });
-                    this.order = Array.isArray(response.data) ? response.data : [];
+                    // Use product_code if available, otherwise use product id
+                    const productIdentifier = this.product.product_code || this.product.id;
+                    const response = await getProductOrderData({ 
+                        user_id: this.user.id, 
+                        product_code: productIdentifier
+                    });
                     
-                    const orderItem = this.order.find(orderItem => orderItem.product_id === this.$route.params.id);
-                    if (orderItem) {
-                        this.quantity = orderItem.quantity;
+                    this.order = Array.isArray(response.data) ? response.data : [];
+                    console.log('this.order', this.order);
+
+                    if(this.order.length > 0) {
+                        this.orderNumber = this.order.find((f) => f.order_status === 'Pending').order_number;
+                        console.log('this.orderNumber', this.orderNumber);
+                    }
+
+                    // Find the order item that matches this product
+                    const orderItem = this.order.find(item => 
+                        item.product_id === this.product.id || 
+                        (item.product_code && item.product_code === this.product.product_code)
+                    );
+                    
+                    if (orderItem && orderItem.quantity) {
+                        this.quantity = parseInt(orderItem.quantity) || 1;
                     } else {
                         this.quantity = 1;
                     }
@@ -318,21 +405,36 @@
             },
 
             async getProductRatingData() {
-                let data = { user_id: this.user.id, product_id: this.$route.params.id };
-               getProductRatingData(data)
+                if (!this.product || !this.product.id || !this.user || !this.user.id) {
+                    return;
+                }
+                
+                let data = { user_id: this.user.id, product_id: this.product.id };
+                getProductRatingData(data)
                 .then((response) => {
                     this.ratings = response.data;
-                    this.averageRating = this.ratings.reduce((sum, review) => sum + review.rating, 0) / this.ratings.length;
+                    if (this.ratings && this.ratings.length > 0) {
+                        this.averageRating = this.ratings.reduce((sum, review) => sum + review.rating, 0) / this.ratings.length;
+                    } else {
+                        this.averageRating = 0;
+                    }
                 }).catch((error) => {
                     console.log(error);
-                    alert(error.response?.data?.error || 'Something went wrong');
+                    this.ratings = [];
+                    this.averageRating = 0;
                 });
             },
 
             addToCart(product) {
+                console.log('addToCart', this.orderNumber);
                 const user = JSON.parse(localStorage.getItem('user'));
                 if (!user) {
                     alert('Please log in first');
+                    return;
+                }
+
+                if (!product || !product.id) {
+                    alert('Product information is missing');
                     return;
                 }
 
@@ -343,24 +445,30 @@
                     user_id: user.id,
                     product_id: product.id,
                     price: product.price,
-                    quantity: 1
+                    quantity: 1,
+                    orderNumber: this.orderNumber
                 };
 
                 orderData(data)
                     .then((response) => {
                         if (response.success) {
                             this.addToCartSuccess = true;
+                            // Store the orderNumber from response for future requests
+                            if (response.orderNumber || response.data?.order_number) {
+                                this.orderNumber = response.orderNumber || response.data.order_number;
+                            }
+                            // Refresh cart data after adding to cart
                             this.fetchCart();
                             setTimeout(() => {
                                 this.addToCartSuccess = false;
                             }, 2000);
                         } else {
-                            alert(response.error);
+                            alert(response.message || response.error || 'Failed to add to cart');
                         }
                     })
                     .catch((error) => {
-                        console.log(error);
-                        alert(error.response?.data?.error || 'Something went wrong');
+                        console.error('Error adding to cart:', error);
+                        alert(error.response?.data?.error || error.response?.data?.message || 'Something went wrong');
                     })
                     .finally(() => {
                         this.loadingItems[product.id] = false;
@@ -374,33 +482,41 @@
                     return;
                 }
 
+                if (!this.product || !this.product.id) {
+                    alert("Product information is missing");
+                    return;
+                }
+
                 if (this.quantity >= 10) {
                     this.quantity = 10;
                     return;
                 }
 
                 this.updatingQuantity = true;
-                this.quantity++;
+                const newQuantity = this.quantity + 1;
+                const newTotalAmount = parseFloat((this.product.price * newQuantity).toFixed(2));
 
-                this.productData = {
-                    ...this.productData,
-                    quantity: this.quantity,
-                    total_amount: this.product.price * this.quantity
+                const productData = {
+                    user_id: this.user.id,
+                    product_id: this.product.id,
+                    quantity: newQuantity,
+                    total_amount: newTotalAmount,
+                    type: 'increase'
                 }
 
-                updateOrderRecord(this.productData)
+                updateOrderRecord(productData)
                     .then((response) => {
                         if (response.success) {
-                            // Success feedback handled by animation
+                            this.quantity = newQuantity;
+                            // Refresh cart to get updated data
+                            this.fetchCart();
                         } else {
-                            this.quantity--;
-                            alert(response.error);
+                            alert(response.message || response.error || 'Failed to update quantity');
                         }
                     })
                     .catch((error) => {
-                        console.error(error);
-                        this.quantity--;
-                        alert(error.response?.data?.error || 'Something went wrong');
+                        console.error('Error updating quantity:', error);
+                        alert(error.response?.data?.error || error.response?.data?.message || 'Something went wrong');
                     })
                     .finally(() => {
                         this.updatingQuantity = false;
@@ -413,32 +529,40 @@
                     return;
                 }
 
+                if (!this.product || !this.product.id) {
+                    alert("Product information is missing");
+                    return;
+                }
+
                 if (this.quantity <= 1) {
                     return;
                 }
 
                 this.updatingQuantity = true;
-                this.quantity--;
+                const newQuantity = this.quantity - 1;
+                const newTotalAmount = parseFloat((this.product.price * newQuantity).toFixed(2));
 
-                this.productData = {
-                    ...this.productData,
-                    quantity: this.quantity,
-                    total_amount: this.product.price * this.quantity
+                const productData = {
+                    user_id: this.user.id,
+                    product_id: this.product.id,
+                    quantity: newQuantity,
+                    total_amount: newTotalAmount,
+                    type: 'decrease'
                 }
 
-                updateOrderRecord(this.productData)
+                updateOrderRecord(productData)
                     .then((response) => {
                         if (response.success) {
-                            // Success feedback handled by animation
+                            this.quantity = newQuantity;
+                            // Refresh cart to get updated data
+                            this.fetchCart();
                         } else {
-                            this.quantity++;
-                            alert(response.error);
+                            alert(response.message || response.error || 'Failed to update quantity');
                         }
                     })
                     .catch((error) => {
-                        console.error(error);
-                        this.quantity++;
-                        alert(error.response?.data?.error || 'Something went wrong');
+                        console.error('Error updating quantity:', error);
+                        alert(error.response?.data?.error || error.response?.data?.message || 'Something went wrong');
                     })
                     .finally(() => {
                         this.updatingQuantity = false;
@@ -451,6 +575,11 @@
                     return;
                 }
 
+                if (!this.product || !this.product.id) {
+                    alert("Product information is missing");
+                    return;
+                }
+
                 if (this.userRating === 0) {
                     alert('Please select a rating!');
                     return;
@@ -458,13 +587,14 @@
 
                 this.submittingRating = true;
 
-                this.productData = {
-                    ...this.productData,
+                const productData = {
+                    user_id: this.user.id,
+                    product_id: this.product.id,
                     rating: this.userRating,
-                    review: this.userReview
+                    review: this.userReview.trim()
                 }
 
-                productRatingData(this.productData)
+                productRatingData(productData)
                     .then((response) => {
                         if (response.success) {
                             // Reset form
@@ -474,29 +604,38 @@
                             // Refresh ratings
                             this.getProductRatingData();
                             // Show success message
-                            alert(response.message);
+                            alert(response.message || 'Rating submitted successfully!');
                         } else {
-                            alert(response.error);
+                            alert(response.message || response.error || 'Failed to submit rating');
                         }
                     })
                     .catch((error) => {
-                        console.error(error);
-                        alert(error.response?.data?.error || 'Something went wrong');
+                        console.error('Error submitting rating:', error);
+                        alert(error.response?.data?.error || error.response?.data?.message || 'Something went wrong');
                     })
                     .finally(() => {
                         this.submittingRating = false;
                     });
             },
         },
-        mounted() {
-            if (this.user && this.user.id) {
-                this.productData = {
-                    user_id: this.user.id,
-                    product_id: this.id,
-                };
+        async mounted() {
+            await this.fetchProduct();
+            if (this.product && this.product.id) {
+                // Fetch ratings after product is loaded
+                this.getProductRatingData();
             }
-            this.fetchCart();
-            this.getProductRatingData();
+        },
+        watch: {
+            '$route.params.id'() {
+                this.id = this.$route.params.id;
+                // Reset product and reload when route changes
+                this.product = {};
+                this.quantity = 1;
+                this.order = [];
+                this.ratings = [];
+                this.averageRating = 0;
+                this.fetchProduct();
+            }
         },
     };
 </script>
@@ -557,7 +696,7 @@
         position: relative;
         width: 100%;
         max-width: 500px;
-        cursor: zoom-in;
+        /* cursor: zoom-in; */
         border-radius: 12px;
         overflow: hidden;
         transition: all 0.3s ease;
@@ -1400,6 +1539,62 @@
         .product-info .row {
             grid-template-columns: 1fr;
         }
+    }
+
+    .loading-state,
+    .error-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 2rem;
+        text-align: center;
+        color: var(--text-secondary);
+    }
+
+    .loading-state .spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid var(--border-color);
+        border-top-color: var(--primary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 1rem;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .error-state svg {
+        color: var(--danger-color);
+        opacity: 0.7;
+        margin-bottom: 1rem;
+    }
+
+    .error-state p {
+        font-size: 1.125rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+        color: var(--text-primary);
+    }
+
+    .btn-retry {
+        padding: 0.75rem 1.5rem;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .btn-retry:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
     }
 
     @media (max-width: 768px) {

@@ -29,7 +29,13 @@
         <!-- Featured Products Section -->
         <section class="featured-products">
             <h2 class="section-title">Featured Products</h2>
-            <div class="product-list">
+            <div v-if="loading" class="loading-state">
+                <p>Loading products...</p>
+            </div>
+            <div v-else-if="products.length === 0" class="empty-state">
+                <p>No products available at the moment.</p>
+            </div>
+            <div v-else class="product-list">
                 <div v-for="(product) in displayedProducts" :key="product.id" class="product-item">
                     <img :src="resolveImagePath(product.image)" :alt="product.name" />
                     <h3>{{ product.name }}</h3>
@@ -52,7 +58,7 @@
             </div>
 
             <!-- Show More Button -->
-            <div v-if="productsToShow < allProducts.length" class="show-more-btn">
+            <div v-if="!loading && products.length > 0 && productsToShow < allProducts.length" class="show-more-btn">
                 <button @click="goToProductsPage">Show More Products</button>
             </div>
         </section>
@@ -106,14 +112,14 @@
 </template>
 
 <script>
-    import product from '../../constant.json';
-    import { orderData, getProductRatingData } from '../../services/api';
+    import { orderData, getProductRatingData, getProducts } from '../../services/api';
 
     export default {
         name: 'HomeComponent',
         data() {
             return {
-                products: product,
+                products: [],
+                loading: true,
                 productsToShow: 4, // number of products to show initially (minimal)
                 cartItems: {}, // product_id → quantity
                 loadingItems: {}, // product_id → loading state
@@ -163,6 +169,24 @@
         },
 
         methods: {
+            async fetchProducts() {
+                this.loading = true;
+                try {
+                    const response = await getProducts();
+                    if (response.success && response.data) {
+                        this.products = response.data;
+                    } else {
+                        console.error('Failed to fetch products:', response);
+                        this.products = [];
+                    }
+                } catch (error) {
+                    console.error('Error fetching products:', error);
+                    this.products = [];
+                    alert('Failed to load products. Please try again later.');
+                } finally {
+                    this.loading = false;
+                }
+            },
             getProductCategory(product) {
                 // Determine category based on image path
                 if (product.image && product.image.includes('electronics')) {
@@ -253,6 +277,7 @@
             },
 
             viewProduct(product) {
+                console.log(product);
                 this.$router.push(`/product-detail/${product.id}`)
             },
 
@@ -266,10 +291,14 @@
             }
         },
 
-        mounted() {
-            this.displayedProducts.forEach(product => {
-                this.getProductRatingData(product.id);
-            });
+        async mounted() {
+            await this.fetchProducts();
+            // Fetch ratings for displayed products after products are loaded
+            if (this.displayedProducts.length > 0) {
+                this.displayedProducts.forEach(product => {
+                    this.getProductRatingData(product.id);
+                });
+            }
         }
     };
 </script>
@@ -434,6 +463,19 @@
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 2rem;
         padding: 1rem 0;
+    }
+
+    .loading-state,
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-secondary);
+    }
+
+    .loading-state p,
+    .empty-state p {
+        font-size: 1.125rem;
+        font-weight: 500;
     }
 
     .product-item {

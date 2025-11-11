@@ -52,8 +52,19 @@
                     </div>
                 </div>
 
+                <!-- Loading State -->
+                <div v-if="loading" class="loading-state">
+                    <p>Loading products...</p>
+                </div>
+                
+                <!-- Error State -->
+                <div v-else-if="error" class="error-state">
+                    <p>{{ error }}</p>
+                    <button @click="fetchProducts" class="retry-btn">Retry</button>
+                </div>
+                
                 <!-- Products Grid -->
-                <div v-if="filteredProducts.length === 0" class="empty-state">
+                <div v-else-if="filteredProducts.length === 0" class="empty-state">
                     <p>No products found in this category.</p>
                 </div>
                 <div v-else class="products-grid">
@@ -91,14 +102,15 @@
 </template>
 
 <script>
-    import product from '../../constant.json';
-    import { getProductRatingData } from '../../services/api';
+    import { getProductRatingData, getProducts } from '../../services/api';
 
     export default {
         name: 'ProductsComponent',
         data() {
             return {
-                products: product,
+                products: [],
+                loading: false,
+                error: null,
                 selectedCategory: null,
                 sortBy: 'default',
                 averageRatings: {},
@@ -199,7 +211,28 @@
                 }
             },
             viewProduct(product) {
+                console.log('product', product);
                 this.$router.push(`/product-detail/${product.id}`);
+            },
+            async fetchProducts() {
+                this.loading = true;
+                this.error = null;
+                try {
+                    const response = await getProducts();
+                    if (response.success && response.data) {
+                        this.products = response.data;
+                        // Ratings will be loaded via the watch on filteredProducts
+                    } else {
+                        this.error = 'Failed to load products';
+                        this.products = [];
+                    }
+                } catch (error) {
+                    console.error('Error fetching products:', error);
+                    this.error = 'Failed to load products. Please try again later.';
+                    this.products = [];
+                } finally {
+                    this.loading = false;
+                }
             }
         },
         mounted() {
@@ -208,10 +241,8 @@
                 this.selectedCategory = this.$route.query.category;
             }
             
-            // Load ratings for all products
-            this.filteredProducts.forEach(product => {
-                this.getProductRatingData(product.id);
-            });
+            // Fetch products from database
+            this.fetchProducts();
         },
         watch: {
             filteredProducts() {
@@ -347,6 +378,36 @@
         text-align: center;
         padding: 4rem 2rem;
         color: var(--text-secondary);
+    }
+
+    .loading-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-secondary);
+    }
+
+    .error-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--error-color, #ef4444);
+    }
+
+    .retry-btn {
+        margin-top: 1rem;
+        padding: 0.75rem 1.5rem;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .retry-btn:hover {
+        background: var(--primary-dark);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
     }
 
     .products-grid {
