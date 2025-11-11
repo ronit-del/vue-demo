@@ -6,12 +6,12 @@
           <h1 class="page-title">Customers</h1>
           <p class="page-subtitle">Manage your customer database</p>
         </div>
-        <button class="btn btn-primary" @click="showAddModal = true">
+        <!-- <button class="btn btn-primary" @click="showAddModal = true">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 4V16M10 4L6 8M10 4L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           Add Customer
-        </button>
+        </button> -->
       </div>
     </div>
 
@@ -35,7 +35,7 @@
               <path d="M3 5H17M5 10H15M7 15H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
-          <button class="btn-icon" title="Export">
+          <button class="btn-icon" title="Export" @click="exportToCSV">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M10 12V2M10 2L6 6M10 2L14 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               <path d="M3 12H17V18C17 18.5523 16.5523 19 16 19H4C3.44772 19 3 18.5523 3 18V12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -71,6 +71,11 @@
               <th>
                 <div class="table-header-cell">
                   <span>Email</span>
+                  <button class="sort-btn" @click="sortBy('email')">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M5 6L8 3L11 6M5 10L8 13L11 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
                 </div>
               </th>
               <th>
@@ -93,7 +98,7 @@
                 </div>
               </td>
             </tr>
-            <tr v-for="customer in filteredCustomers" :key="customer.id" class="table-row">
+            <tr v-for="customer in paginatedCustomers" :key="customer.id" class="table-row">
               <!-- <td>
                 <span class="cell-id">#{{ customer.id }}</span>
               </td> -->
@@ -109,23 +114,19 @@
                 <span class="cell-email">{{ customer.email }}</span>
               </td>
               <td>
-                <span class="status-badge status-active">Active</span>
+                <span class="status-badge" :class="getStatusClass(customer)">
+                  {{ getStatusText(customer) }}
+                </span>
               </td>
               <td class="text-right">
                 <div class="action-buttons">
-                  <button class="btn-action" title="View">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M1 9C1 9 4 4 9 4C14 4 17 9 17 9C17 9 14 14 9 14C4 14 1 9 1 9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                      <path d="M9 11C10.1046 11 11 10.1046 11 9C11 7.89543 10.1046 7 9 7C7.89543 7 7 7.89543 7 9C7 10.1046 7.89543 11 9 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  </button>
-                  <button class="btn-action" title="Edit">
+                  <button class="btn-action" title="Edit" @click="$router.push(`/customers/${customer.id}/edit`)">
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M11 3L15 7L5 17H1V13L11 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                       <path d="M9 5L13 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                   </button>
-                  <button class="btn-action btn-action-danger" title="Delete">
+                  <button class="btn-action btn-action-danger" title="Delete" @click="confirmDelete(customer)">
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M3 5H15M13 5V14C13 14.5523 12.5523 15 12 15H6C5.44772 15 5 14.5523 5 14V5M7 5V3C7 2.44772 7.44772 2 8 2H10C10.5523 2 11 2.44772 11 3V5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
@@ -139,7 +140,12 @@
 
       <div class="table-footer">
         <div class="pagination-info">
-          Showing {{ filteredCustomers.length }} of {{ customers.length }} customers
+          <span v-if="filteredCustomers.length > 0">
+            Showing {{ paginationStart }} to {{ paginationEnd }} of {{ filteredCustomers.length }} customers
+          </span>
+          <span v-else>
+            No customers found
+          </span>
         </div>
         <div class="pagination">
           <button class="btn-pagination" :disabled="currentPage === 1" @click="currentPage--">
@@ -156,10 +162,41 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteModal" class="modal-overlay" @click.self="showDeleteModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">Delete Customer</h3>
+          <button class="modal-close" @click="showDeleteModal = false">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete <strong>{{ customerToDelete?.name }}</strong>?</p>
+          <p class="warning-text">This action cannot be undone. If the customer has orders, they must be deleted first.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showDeleteModal = false" :disabled="deleting">
+            Cancel
+          </button>
+          <button class="btn btn-danger" @click="deleteCustomer" :disabled="deleting">
+            <svg v-if="deleting" class="spinner-icon" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="9" cy="9" r="8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="50.265" stroke-dashoffset="12.566"/>
+            </svg>
+            {{ deleting ? 'Deleting...' : 'Delete Customer' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
+import { COUNTRIES } from '../services/api';
+
 export default {
   name: 'CustomerComponent',
   data() {
@@ -169,7 +206,21 @@ export default {
       itemsPerPage: 10,
       sortField: 'id',
       sortOrder: 'asc',
-      showAddModal: false
+      showDeleteModal: false,
+      customerToDelete: null,
+      deleting: false,
+      adding: false,
+      addError: null,
+      countries: COUNTRIES,
+      newCustomer: {
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        country: '',
+        postal_code: '',
+        status: 'active'
+      }
     }
   },
   computed: {
@@ -196,10 +247,63 @@ export default {
         );
       }
       
+      // Apply sorting
+      if (this.sortField) {
+        filtered = [...filtered].sort((a, b) => {
+          let aValue, bValue;
+          
+          if (this.sortField === 'name') {
+            aValue = (a.name || '').toLowerCase();
+            bValue = (b.name || '').toLowerCase();
+          } else if (this.sortField === 'email') {
+            aValue = (a.email || '').toLowerCase();
+            bValue = (b.email || '').toLowerCase();
+          } else if (this.sortField === 'id') {
+            aValue = a.id || 0;
+            bValue = b.id || 0;
+          } else {
+            aValue = a[this.sortField];
+            bValue = b[this.sortField];
+          }
+          
+          if (aValue < bValue) {
+            return this.sortOrder === 'asc' ? -1 : 1;
+          }
+          if (aValue > bValue) {
+            return this.sortOrder === 'asc' ? 1 : -1;
+          }
+          return 0;
+        });
+      }
+      
       return filtered;
     },
     totalPages() {
-      return Math.ceil(this.filteredCustomers.length / this.itemsPerPage);
+      return Math.ceil(this.filteredCustomers.length / this.itemsPerPage) || 1;
+    },
+    paginatedCustomers() {
+      const start = (this.currentPage - 1) * this.itemsPerPage;
+      const end = start + this.itemsPerPage;
+      return this.filteredCustomers.slice(start, end);
+    },
+    paginationStart() {
+      if (this.filteredCustomers.length === 0) return 0;
+      return (this.currentPage - 1) * this.itemsPerPage + 1;
+    },
+    paginationEnd() {
+      const end = this.currentPage * this.itemsPerPage;
+      return Math.min(end, this.filteredCustomers.length);
+    }
+  },
+  watch: {
+    searchQuery() {
+      this.currentPage = 1;
+    },
+    filteredCustomers() {
+      // Reset to page 1 if current page is out of bounds
+      if (this.currentPage > this.totalPages && this.totalPages > 0) {
+        this.currentPage = 1;
+      }
     }
   },
   methods: {
@@ -213,6 +317,134 @@ export default {
     },
     getInitials(name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    },
+    getStatusClass(customer) {
+      const status = customer.status || (customer.is_active !== undefined ? (customer.is_active ? 'active' : 'inactive') : 'active');
+      return status === 'active' ? 'status-active' : 'status-inactive';
+    },
+    getStatusText(customer) {
+      const status = customer.status || (customer.is_active !== undefined ? (customer.is_active ? 'active' : 'inactive') : 'active');
+      return status === 'active' ? 'Active' : 'Inactive';
+    },
+    confirmDelete(customer) {
+      this.customerToDelete = customer;
+      this.showDeleteModal = true;
+    },
+    async deleteCustomer() {
+      if (!this.customerToDelete) return;
+      
+      this.deleting = true;
+      try {
+        const { deleteCustomer } = await import('../services/api');
+        const response = await deleteCustomer(this.customerToDelete.id);
+        
+        if (response.success) {
+          // Refresh customers list
+          await this.$store.dispatch('fetchCustomers');
+          this.showDeleteModal = false;
+          this.customerToDelete = null;
+        } else {
+          alert(response.message || 'Failed to delete customer');
+        }
+      } catch (error) {
+        console.error('Error deleting customer:', error);
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to delete customer. Please try again.';
+        alert(errorMessage);
+      } finally {
+        this.deleting = false;
+      }
+    },
+    async handleAddCustomer() {
+      this.adding = true;
+      this.addError = null;
+      
+      try {
+        const { createCustomer } = await import('../services/api');
+        const response = await createCustomer(this.newCustomer);
+        
+        if (response.success) {
+          // Refresh customers list
+          await this.$store.dispatch('fetchCustomers');
+          this.closeAddModal();
+        } else {
+          this.addError = response.message || 'Failed to add customer';
+        }
+      } catch (error) {
+        console.error('Error adding customer:', error);
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to add customer. Please try again.';
+        this.addError = errorMessage;
+      } finally {
+        this.adding = false;
+      }
+    },
+    closeAddModal() {
+      this.addError = null;
+      this.newCustomer = {
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        country: '',
+        postal_code: '',
+        status: 'active'
+      };
+    },
+    exportToCSV() {
+      // Escape commas and quotes in CSV values
+      const escapeCSV = (value) => {
+        if (value === null || value === undefined) return '';
+        const stringValue = String(value);
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      };
+      
+      // Prepare CSV headers
+      const headers = ['Name', 'Email', 'Status'];
+      
+      // Prepare CSV rows from filtered customers
+      const rows = this.filteredCustomers.map(customer => {
+        const name = customer.name || '';
+        const email = customer.email || '';
+        const status = this.getStatusText(customer);
+        
+        return [
+          escapeCSV(name),
+          escapeCSV(email),
+          escapeCSV(status)
+        ];
+      });
+      
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+      ].join('\n');
+      
+      // Add BOM for UTF-8 to support Excel
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      
+      // Create download link
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      
+      // Generate filename with current date
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+      const filename = `customers_export_${dateStr}.csv`;
+      link.setAttribute('download', filename);
+      
+      // Trigger download
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      URL.revokeObjectURL(url);
     }
   },
   created() {
@@ -482,6 +714,11 @@ export default {
 .status-active {
   background: rgba(16, 185, 129, 0.1);
   color: var(--success-color);
+}
+
+.status-inactive {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-color);
 }
 
 .action-buttons {

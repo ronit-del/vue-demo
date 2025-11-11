@@ -123,10 +123,10 @@ router.post("/register", async (req, res) => {
         // Insert user
         const result = await pool.query(
             `INSERT INTO users (name, email, password_hash, phone, postal_code, address, country, 
-                email_verified, email_verification_token, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+                email_verified, email_verification_token, status, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
             RETURNING id, name, email, email_verified`,
-            [name, email.toLowerCase(), password_hash, phone, postal_code, address, country, false, token]
+            [name, email.toLowerCase(), password_hash, phone, postal_code, address, country, false, token, 'active']
         );
 
         const user = result.rows[0];

@@ -133,36 +133,31 @@
 
       <div class="dashboard-card">
         <div class="card-header">
-          <h2 class="card-title">Quick Actions</h2>
+          <h2 class="card-title">Recent Products</h2>
+          <router-link to="/prices" class="card-link">View All</router-link>
         </div>
         <div class="card-content">
-          <div class="quick-actions">
-            <!-- <button class="action-btn action-btn-primary">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M10 4V16M10 4L6 8M10 4L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                  stroke-linejoin="round" />
-              </svg>
-              Create Order
-            </button> -->
-            <button class="action-btn action-btn-secondary">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M17 19V17C17 15.9391 16.5786 14.9217 15.8284 14.1716C15.0783 13.4214 14.0609 13 13 13H7C5.93913 13 4.92172 13.4214 4.17157 14.1716C3.42143 14.9217 3 15.9391 3 17V19"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                <path
-                  d="M10 9C12.2091 9 14 7.20914 14 5C14 2.79086 12.2091 1 10 1C7.79086 1 6 2.79086 6 5C6 7.20914 7.79086 9 10 9Z"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              Add Customer
-            </button>
-            <button class="action-btn action-btn-tertiary">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M10 2V18M10 2C8.89543 2 8 2.89543 8 4C8 5.10457 8.89543 6 10 6M10 2C11.1046 2 12 2.89543 12 4C12 5.10457 11.1046 6 10 6M10 14C8.89543 14 8 14.8954 8 16C8 17.1046 8.89543 18 10 18M10 14C11.1046 14 12 14.8954 12 16C12 17.1046 11.1046 18 10 18"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              Update Prices
-            </button>
+          <div v-if="recentProducts.length === 0" class="empty-state">
+            <p>No products available</p>
+          </div>
+          <div v-else class="recent-list">
+            <div v-for="product in recentProducts" :key="product.id" class="recent-item product-item">
+              <div class="product-image-container">
+                <img v-if="product.image" :src="product.image" :alt="product.name" class="product-image" />
+                <div v-else class="product-image-placeholder">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 16L8.586 11.414C9.367 10.633 10.633 10.633 11.414 11.414L16 16M14 14L15.586 12.414C16.367 11.633 17.633 11.633 18.414 12.414L20 14M14 8H14.01M6 20H18C19.1046 20 20 19.1046 20 18V6C20 4.89543 19.1046 4 18 4H6C4.89543 4 4 4.89543 4 6V18C4 19.1046 4.89543 20 6 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="recent-item-info">
+                <p class="recent-item-title">{{ product.name }}</p>
+                <p class="recent-item-subtitle">{{ product.category || 'Uncategorized' }} • Stock: {{ product.stock_quantity || 0 }}</p>
+              </div>
+              <div class="recent-item-meta">
+                <span class="recent-item-amount">${{ formatCurrency(product.price || 0) }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -184,6 +179,9 @@ export default {
     },
     recentOrders() {
       return this.$store.state.orders.slice(0, 5);
+    },
+    recentProducts() {
+      return this.$store.state.products.slice(0, 5);
     }
   },
   methods: {
@@ -214,7 +212,8 @@ export default {
     this.loading = true;
     await Promise.all([
       this.$store.dispatch('fetchOrders'),
-      this.$store.dispatch('fetchDashboardStats')
+      this.$store.dispatch('fetchDashboardStats'),
+      this.$store.dispatch('fetchProducts')
     ]);
     this.loading = false;
   }
@@ -501,6 +500,37 @@ export default {
 
 .action-btn-tertiary:hover {
   background: var(--bg-tertiary);
+}
+
+.product-item {
+  gap: 1rem;
+}
+
+.product-image-container {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
 }
 
 @media (max-width: 768px) {

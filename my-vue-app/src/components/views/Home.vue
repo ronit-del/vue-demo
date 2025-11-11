@@ -37,7 +37,7 @@
             </div>
             <div v-else class="product-list">
                 <div v-for="(product) in displayedProducts" :key="product.id" class="product-item">
-                    <img :src="resolveImagePath(product.image)" :alt="product.name" />
+                    <img :src="product.image" :alt="product.name" />
                     <h3>{{ product.name }}</h3>
                     <p>${{ product.price }}</p>
 

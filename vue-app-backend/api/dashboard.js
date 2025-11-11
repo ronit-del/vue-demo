@@ -35,7 +35,7 @@ router.get("/stats", async (req, res) => {
         // Get all-time totals
         const allTimeStatsResult = await pool.query(`
             SELECT 
-                (SELECT COUNT(*) FROM orders) as total_orders,
+                (SELECT COUNT(*) FROM orders WHERE status IN ('Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded')) as total_orders,
                 (SELECT COUNT(*) FROM users) as total_customers,
                 (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status IN ('Processing', 'Shipped', 'Delivered')) as revenue,
                 (SELECT COUNT(*) FROM orders WHERE status = 'Pending') as pending_orders

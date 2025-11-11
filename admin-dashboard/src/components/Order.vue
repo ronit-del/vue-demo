@@ -6,12 +6,12 @@
           <h1 class="page-title">Orders</h1>
           <p class="page-subtitle">Manage and track all orders</p>
         </div>
-        <button class="btn btn-primary" @click="showAddModal = true">
+        <!-- <button class="btn btn-primary" @click="showAddModal = true">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M10 4V16M10 4L6 8M10 4L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           New Order
-        </button>
+        </button> -->
       </div>
     </div>
 
@@ -57,7 +57,7 @@
             <option value="Delivered">Delivered</option>
             <option value="Cancelled">Cancelled</option>
           </select>
-          <button class="btn-icon" title="Export">
+          <button class="btn-icon" title="Export" @click="exportToCSV">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M10 12V2M10 2L6 6M10 2L14 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               <path d="M3 12H17V18C17 18.5523 16.5523 19 16 19H4C3.44772 19 3 18.5523 3 18V12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -118,7 +118,7 @@
                 </div>
               </td>
             </tr>
-            <tr v-for="order in filteredOrders" :key="order.id" class="table-row">
+            <tr v-for="order in paginatedOrders" :key="order.id" class="table-row">
               <td>
                 <span class="cell-id">{{ order.order_number || order.id }}</span>
               </td>
@@ -163,13 +163,28 @@
                 </div>
               </td>
             </tr>
+            <tr v-if="filteredOrders.length > 0" class="table-footer-row">
+              <td colspan="3" class="text-right">
+                <strong>Total:</strong>
+              </td>
+              <td></td>
+              <td>
+                <span class="cell-amount total-sum">${{ formatCurrency(filteredOrdersTotal) }}</span>
+              </td>
+              <td></td>
+            </tr>
           </tbody>
         </table>
       </div>
 
       <div class="table-footer">
         <div class="pagination-info">
-          Showing {{ filteredOrders.length }} of {{ orders.length }} orders
+          <span v-if="filteredOrders.length > 0">
+            Showing {{ paginationStart }} to {{ paginationEnd }} of {{ filteredOrders.length }} orders
+          </span>
+          <span v-else>
+            No orders found
+          </span>
         </div>
         <div class="pagination">
           <button class="btn-pagination" :disabled="currentPage === 1" @click="currentPage--">
@@ -239,6 +254,35 @@ export default {
         filtered = filtered.filter(order => order.status === this.statusFilter);
       }
       
+      // Apply sorting
+      if (this.sortField) {
+        filtered = [...filtered].sort((a, b) => {
+          let aValue, bValue;
+          
+          if (this.sortField === 'order_number') {
+            aValue = (a.order_number || a.id).toString();
+            bValue = (b.order_number || b.id).toString();
+          } else if (this.sortField === 'date') {
+            aValue = new Date(a.date || a.created_at || 0);
+            bValue = new Date(b.date || b.created_at || 0);
+          } else if (this.sortField === 'total') {
+            aValue = parseFloat(a.total || 0);
+            bValue = parseFloat(b.total || 0);
+          } else {
+            aValue = a[this.sortField];
+            bValue = b[this.sortField];
+          }
+          
+          if (aValue < bValue) {
+            return this.sortOrder === 'asc' ? -1 : 1;
+          }
+          if (aValue > bValue) {
+            return this.sortOrder === 'asc' ? 1 : -1;
+          }
+          return 0;
+        });
+      }
+      
       return filtered;
     },
     processingCount() {
@@ -251,7 +295,37 @@ export default {
       return this.orders.reduce((sum, order) => sum + (order.total || 0), 0);
     },
     totalPages() {
-      return Math.ceil(this.filteredOrders.length / this.itemsPerPage);
+      return Math.ceil(this.filteredOrders.length / this.itemsPerPage) || 1;
+    },
+    filteredOrdersTotal() {
+      return this.filteredOrders.reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+    },
+    paginatedOrders() {
+      const start = (this.currentPage - 1) * this.itemsPerPage;
+      const end = start + this.itemsPerPage;
+      return this.filteredOrders.slice(start, end);
+    },
+    paginationStart() {
+      if (this.filteredOrders.length === 0) return 0;
+      return (this.currentPage - 1) * this.itemsPerPage + 1;
+    },
+    paginationEnd() {
+      const end = this.currentPage * this.itemsPerPage;
+      return Math.min(end, this.filteredOrders.length);
+    }
+  },
+  watch: {
+    searchQuery() {
+      this.currentPage = 1;
+    },
+    statusFilter() {
+      this.currentPage = 1;
+    },
+    filteredOrders() {
+      // Reset to page 1 if current page is out of bounds
+      if (this.currentPage > this.totalPages && this.totalPages > 0) {
+        this.currentPage = 1;
+      }
     }
   },
   methods: {
@@ -285,6 +359,77 @@ export default {
         month: 'short', 
         day: 'numeric' 
       }).format(new Date(date));
+    },
+    exportToCSV() {
+      // Escape commas and quotes in CSV values
+      const escapeCSV = (value) => {
+        if (value === null || value === undefined) return '';
+        const stringValue = String(value);
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      };
+      
+      // Prepare CSV headers
+      const headers = ['Order ID', 'Customer', 'Date', 'Status', 'Total'];
+      
+      // Prepare CSV rows from filtered orders
+      const rows = this.filteredOrders.map(order => {
+        const orderId = order.order_number || order.id;
+        const customer = order.customer || '';
+        const date = order.date ? this.formatDate(order.date) : (order.created_at ? this.formatDate(order.created_at) : '');
+        const status = order.status || '';
+        const total = order.total ? `$${this.formatCurrency(order.total)}` : '$0.00';
+        
+        return [
+          escapeCSV(orderId),
+          escapeCSV(customer),
+          escapeCSV(date),
+          escapeCSV(status),
+          escapeCSV(total)
+        ];
+      });
+      
+      // Add total row
+      const totalRow = [
+        '', // Order ID
+        '', // Customer
+        '', // Date
+        'Total:', // Status column - show "Total:" label
+        escapeCSV(`$${this.formatCurrency(this.filteredOrdersTotal)}`) // Total
+      ];
+      
+      // Combine headers, rows, and total row
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(',')),
+        totalRow.join(',')
+      ].join('\n');
+      
+      // Add BOM for UTF-8 to support Excel
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      
+      // Create download link
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      
+      // Generate filename with current date
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+      const filename = `orders_export_${dateStr}.csv`;
+      link.setAttribute('download', filename);
+      
+      // Trigger download
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      URL.revokeObjectURL(url);
     }
   },
   created() {
@@ -571,6 +716,22 @@ export default {
 
 .empty-state svg {
   color: var(--text-tertiary);
+}
+
+.table-footer-row {
+  background: var(--bg-secondary);
+  border-top: 2px solid var(--border-color);
+  font-weight: 600;
+}
+
+.table-footer-row td {
+  padding: 1.25rem 1.5rem;
+  font-size: 0.9375rem;
+}
+
+.total-sum {
+  font-size: 1rem !important;
+  color: var(--primary-color);
 }
 
 .cell-id {

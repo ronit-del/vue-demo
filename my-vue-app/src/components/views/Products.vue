@@ -75,7 +75,7 @@
                         @click="viewProduct(product)"
                     >
                         <div class="product-image-wrapper">
-                            <img :src="resolveImagePath(product.image)" :alt="product.name" />
+                            <img :src="product.image" :alt="product.name" />
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">{{ product.name }}</h3>

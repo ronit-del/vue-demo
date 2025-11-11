@@ -111,6 +111,7 @@ class DatabaseManager {
         email_verified BOOLEAN DEFAULT FALSE,
         email_verification_token VARCHAR(255),
         email_verification_expires TIMESTAMP,
+        status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
@@ -134,6 +135,7 @@ class DatabaseManager {
         description TEXT, -- Product description
         price DECIMAL(10, 2) NOT NULL, -- Price of the product
         stock_quantity INT DEFAULT 0, -- Quantity available in stock
+        category VARCHAR(50), -- Product category (electronics, clothes, home_appliances, beauty)
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
@@ -187,6 +189,18 @@ class DatabaseManager {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )` */
+
+      // Notifications table
+      `CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+        order_number VARCHAR(100),
+        message TEXT NOT NULL,
+        type VARCHAR(50) DEFAULT 'order_processing',
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        read_at TIMESTAMP
+      )`
     ];
 
     for (const tableSQL of tables) {
@@ -202,6 +216,18 @@ class DatabaseManager {
         column: 'country',
         type: 'VARCHAR(100)',
         check: `SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'country'`
+      },
+      {
+        table: 'users',
+        column: 'status',
+        type: "VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive'))",
+        check: `SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'status'`
+      },
+      {
+        table: 'products',
+        column: 'category',
+        type: 'VARCHAR(50)',
+        check: `SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'category'`
       }
     ];
 
@@ -210,6 +236,12 @@ class DatabaseManager {
       if (exists.rows.length === 0) {
         await this.pool.query(`ALTER TABLE ${col.table} ADD COLUMN ${col.column} ${col.type}`);
         console.log(`✅ Added missing column: ${col.table}.${col.column}`);
+        
+        // If adding status column, set default value for existing rows
+        if (col.column === 'status' && col.table === 'users') {
+          await this.pool.query(`UPDATE users SET status = 'active' WHERE status IS NULL`);
+          console.log(`✅ Set default status 'active' for existing users`);
+        }
       }
     }
 
@@ -403,10 +435,10 @@ class DatabaseManager {
       const password_hash = await bcrypt.hash('password', 12);
       await this.pool.query(`
         INSERT INTO users (name, email, password_hash, phone, postal_code, address, country,
-          email_verified, created_at, updated_at
+          email_verified, status, created_at, updated_at
         ) 
         VALUES ('Martin Joe', 'vue.app@yopmail.com', $1, '+1 987609 9876', '369 598', 'Ahmedabad', 'India', 
-        true, NOW(), NOW()
+        true, 'active', NOW(), NOW()
         )
       `, [password_hash]);
       console.log('✅ Added test user: vue.app@yopmail.com / password');

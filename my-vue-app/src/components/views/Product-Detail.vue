@@ -15,7 +15,7 @@
             <section class="product-detail">
                 <div class="product-image-wrapper">
                     <div class="product-image" @click="openImageModal">
-                        <img :src="`/${product.image}`" :alt="product.name" @load="imageLoaded = true" />
+                        <img :src="`${product.image}`" :alt="product.name" @load="imageLoaded = true" />
                         <div v-if="!imageLoaded" class="image-skeleton">
                             <div class="skeleton-loader"></div>
                         </div>

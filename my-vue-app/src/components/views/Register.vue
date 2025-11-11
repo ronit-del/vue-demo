@@ -306,6 +306,7 @@ export default {
 
 .form-control {
     width: 100%;
+    height: 60px;
     padding: 0.875rem 1rem;
     border: 2px solid var(--border-color);
     border-radius: 8px;

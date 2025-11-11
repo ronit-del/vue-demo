@@ -17,6 +17,7 @@ router.get("/", async (req, res) => {
                 description,
                 price,
                 stock_quantity,
+                category,
                 created_at,
                 updated_at
             FROM products
@@ -39,6 +40,7 @@ router.get("/", async (req, res) => {
             description: product.description || null,
             price: parseFloat(product.price) || 0,
             stock_quantity: parseInt(product.stock_quantity) || 0,
+            category: product.category || null,
             created_at: product.created_at,
             updated_at: product.updated_at
         }));
@@ -71,6 +73,7 @@ router.get("/:id", async (req, res) => {
                 description,
                 price,
                 stock_quantity,
+                category,
                 created_at,
                 updated_at
             FROM products
@@ -95,6 +98,7 @@ router.get("/:id", async (req, res) => {
                 description: product.description || null,
                 price: parseFloat(product.price) || 0,
                 stock_quantity: parseInt(product.stock_quantity) || 0,
+                category: product.category || null,
                 created_at: product.created_at,
                 updated_at: product.updated_at
             }

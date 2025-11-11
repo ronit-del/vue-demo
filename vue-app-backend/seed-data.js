@@ -78,8 +78,8 @@ async function seedDatabase() {
 
       if (existingUser.rows.length === 0) {
         const result = await pool.query(`
-          INSERT INTO users (name, email, password_hash, phone, postal_code, address, country, email_verified, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+          INSERT INTO users (name, email, password_hash, phone, postal_code, address, country, email_verified, status, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
           RETURNING id
         `, [
           `${firstName} ${lastName}`,
@@ -89,7 +89,8 @@ async function seedDatabase() {
           generatePostalCode(),
           `${randomNumber(100, 9999)} ${randomElement(cities)} Street`,
           randomElement(countries),
-          Math.random() > 0.3 // 70% verified
+          Math.random() > 0.3, // 70% verified
+          'active' // Default status
         ]);
         userIds.push(result.rows[0].id);
         console.log(`  ✅ Created user: ${firstName} ${lastName} (${email})`);

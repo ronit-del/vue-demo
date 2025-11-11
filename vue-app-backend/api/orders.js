@@ -4,6 +4,7 @@ const router = express.Router();
 const db = require("../config/db");
 const pool = db.getPool();
 const { statusCode } = require("../common");
+const { createNotification } = require("./notifications");
 
 // Get all orders with user details and order items
 router.get("/", async (req, res) => {
@@ -203,6 +204,22 @@ router.put("/:id/status", async (req, res) => {
             });
         }
 
+        // Get order details before update
+        const orderBeforeUpdate = await pool.query(
+            `SELECT id, order_number, status FROM orders WHERE id = $1`,
+            [id]
+        );
+
+        if (orderBeforeUpdate.rows.length === 0) {
+            return res.status(statusCode.BAD_REQUEST.code).json({
+                success: false,
+                message: "Order not found"
+            });
+        }
+
+        const oldStatus = orderBeforeUpdate.rows[0].status;
+        const orderNumber = orderBeforeUpdate.rows[0].order_number;
+
         const result = await pool.query(
             `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
             [status, id]
@@ -213,6 +230,12 @@ router.put("/:id/status", async (req, res) => {
                 success: false,
                 message: "Order not found"
             });
+        }
+
+        // Create notification if status changed to Processing
+        if (status === 'Processing' && oldStatus !== 'Processing') {
+            const message = `Order ${orderNumber} is now being processed`;
+            await createNotification(id, orderNumber, message, 'order_processing');
         }
 
         return res.status(statusCode.SUCCESS.code).json({
@@ -250,6 +273,17 @@ router.put("/:id", async (req, res) => {
         }
 
         const currentOrder = orderCheck.rows[0];
+        const oldStatus = currentOrder.status;
+        let orderNumber = null;
+
+        // Get order_number for notification
+        const orderInfo = await pool.query(
+            `SELECT order_number FROM orders WHERE id = $1`,
+            [id]
+        );
+        if (orderInfo.rows.length > 0) {
+            orderNumber = orderInfo.rows[0].order_number;
+        }
 
         // Update order fields
         const updateFields = [];
@@ -280,6 +314,12 @@ router.put("/:id", async (req, res) => {
 
             const updateQuery = `UPDATE orders SET ${updateFields.join(', ')} WHERE id = $${whereParamIndex}`;
             await pool.query(updateQuery, updateValues);
+
+            // Create notification if status changed to Processing
+            if (status !== undefined && status === 'Processing' && oldStatus !== 'Processing' && orderNumber) {
+                const message = `Order ${orderNumber} is now being processed`;
+                await createNotification(id, orderNumber, message, 'order_processing');
+            }
         }
 
         // If order_items provided, update order_details

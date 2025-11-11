@@ -160,6 +160,8 @@ async function startServer() {
         app.use('/api/customers', require('./api/customers'));
         app.use('/api/prices', require('./api/prices'));
         app.use('/api/products', require('./api/products'));
+        app.use('/api/upload', require('./api/upload'));
+        app.use('/api/notifications', require('./api/notifications'));
 
         console.log('✅ API routes loaded successfully');
     } catch (error) {

@@ -83,12 +83,9 @@
               <select 
                 v-model="formData.payment_type" 
                 class="form-select"
+                disabled
               >
                 <option value="">Select Payment Type</option>
-                <!-- <option value="Credit Card">Credit Card</option> -->
-                <!-- <option value="Debit Card">Debit Card</option> -->
-                <!-- <option value="Bank Transfer">Bank Transfer</option> -->
-                <!-- <option value="Cash">Cash</option> -->
                 <option value="COD">COD</option>
                 <option value="Stripe">Stripe</option>
               </select>
@@ -209,12 +206,15 @@
               <div class="item-info">
                 <div class="item-number">{{ index + 1 }}</div>
                 <div class="item-details">
-                  <div class="item-name">Product ID: {{ item.product_id }}</div>
+                  <div class="item-name">Product Code: {{ item.product_code }}</div>
                   <div class="item-meta">
                     <span>Price: ${{ formatCurrency(item.base_price) }}</span>
                     <span>Quantity: {{ item.quantity }}</span>
                   </div>
                 </div>
+              </div>
+              <div class="item-image">
+                <img :src="getImageUrl(item.product_image)" alt="Product Image">
               </div>
               <div class="item-total">
                 ${{ formatCurrency(item.total_amount) }}
@@ -283,6 +283,16 @@ export default {
     }
   },
   methods: {
+    getImageUrl(imagePath) {
+      if (!imagePath) return '';
+      // If image path is relative, construct full URL
+      if (imagePath.startsWith('http')) {
+        return imagePath;
+      }
+      // For relative paths, assume they're in the public folder or assets
+      const baseURL = process.env.VUE_APP_FRONTEND_URL || 'http://192.168.0.111:8080';
+      return `${baseURL}/${imagePath}`;
+    },
     async fetchOrder() {
       this.loading = true;
       this.error = null;
@@ -676,6 +686,20 @@ export default {
   gap: 1rem;
   font-size: 0.875rem;
   color: var(--text-secondary);
+}
+
+.item-image {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.item-image img {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .item-total {
