@@ -118,6 +118,7 @@ export default {
         ErrorComponent,
         SuccessComponent
     },
+
     data() {
         return {
             name: '',

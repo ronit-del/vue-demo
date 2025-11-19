@@ -4,14 +4,23 @@
       <div class="header-content">
         <div class="header-info">
           <button class="btn-back" @click="$router.push('/customers')">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 16L6 10L12 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            <div class="dflex">
+              <div>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 16L6 10L12 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <span>
+                  Back to Customer(s) List
+                </span>
+              </div>
+            </div>
           </button>
-          <div>
+          <!-- <div>
             <h1 class="page-title">Edit Customer</h1>
             <p class="page-subtitle">Customer: {{ customer.name || 'Loading...' }}</p>
-          </div>
+          </div> -->
         </div>
       </div>
     </div>
@@ -179,6 +188,7 @@ export default {
       error: null
     }
   },
+
   methods: {
     getCountryCode(countryValue) {
       if (!countryValue) return '';
@@ -198,6 +208,7 @@ export default {
       // If no match found, return the original value (might be a custom value)
       return countryValue;
     },
+
     async fetchCustomer() {
       this.loading = true;
       this.error = null;
@@ -230,6 +241,7 @@ export default {
         this.loading = false;
       }
     },
+
     setSampleData() {
       const customerId = this.$route.params.id;
       this.customer = {
@@ -246,6 +258,7 @@ export default {
       };
       this.formData = { ...this.customer };
     },
+
     async handleSubmit() {
       this.saving = true;
       this.error = null;
@@ -282,9 +295,11 @@ export default {
       }
     }
   },
+
   created() {
     this.fetchCustomer();
   },
+
   watch: {
     '$route.params.id'() {
       this.fetchCustomer();
@@ -315,20 +330,6 @@ export default {
   display: flex;
   align-items: center;
   gap: 1rem;
-}
-
-.btn-back {
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: all 0.2s ease;
 }
 
 .btn-back:hover {

@@ -50,6 +50,7 @@ export default {
         ErrorComponent,
         SuccessComponent
     },
+
     data() {
         return {
             email: '',
@@ -61,6 +62,7 @@ export default {
             isLoading: false
         }
     },
+
     computed: {
         // Check if there are any errors in the form fields
         hasErrors() {

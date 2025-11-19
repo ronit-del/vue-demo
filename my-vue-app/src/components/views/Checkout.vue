@@ -1,9 +1,5 @@
 <template>
     <div class="checkout-container">
-        <div class="checkout-header">
-            <h1 class="checkout-title">Checkout</h1>
-        </div>
-
         <!-- Empty Cart Message -->
         <div v-if="cart.length === 0" class="empty-cart">
             <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -22,6 +18,10 @@
         </div>
 
         <div v-if="cart.length > 0" class="checkout-content">
+            <div class="checkout-header">
+                <h1 class="checkout-title">Checkout</h1>
+            </div>
+
             <div class="row">
                 <!-- Left Column: Personal Information and Payment -->
                 <div class="col-left">
@@ -460,6 +460,7 @@
 import { COUNTRIES, createStripe, deleteOrderRecord, getOrderData, updateOrderRecord, updateProfile } from '../../services/api';
 // import productData from '../../constant.json';
 import { loadStripe } from '@stripe/stripe-js';
+import { trackOrderPlaced, trackOrderAttempt, trackOrderFailure } from '../../services/tracking';
 
 export default {
     name: 'CheckoutComponent',
@@ -497,12 +498,15 @@ export default {
         subtotal() {
             return this.cart.reduce((total, item) => total + item.price * item.quantity, 0);
         },
+
         tax() {
             return this.subtotal * 0.1;
         },
+
         totalPrice() {
             return (this.subtotal + this.tax).toFixed(2);
         },
+
         hasChanges() {
             return JSON.stringify(this.userDetail) !== JSON.stringify(this.originalUserDetail);
         }
@@ -745,19 +749,7 @@ export default {
                             }
                         });
 
-                        // Map order items to cart items with product details
-                        this.cart = response.data/* .map(orderItem => {
-                            
-                            let product = productData.find(p => p.id === orderItem.product_id);
-                            console.log('orderItem', orderItem);
-
-                            return {
-                                ...orderItem,
-                                name: product?.name || 'Unknown Product',
-                                price: parseFloat(product?.price || orderItem.price || 0),
-                                image: product?.image ? require(`@/assets/${product.image}`) : require('@/assets/product-category/electronics/electronics-1.jpg'),
-                            };
-                        }) */;
+                        this.cart = response.data;
                     } else {
                         // No orders found
                         this.cart = [];
@@ -805,7 +797,6 @@ export default {
                 quantity: item.quantity,
                 total_amount: item.price * item.quantity
             }
-            console.log('productData', productData);
             
             updateOrderRecord(productData)
                 .then((response) => {
@@ -863,7 +854,8 @@ export default {
                 })
                 .finally(() => {
                     this.updatingItems[item.product_id] = false;
-                });
+                }
+            );
         },
 
         confirmDelete(item) {
@@ -943,15 +935,12 @@ export default {
         },
 
         onPaymentMethodChange() {
-            // Reset payment states when changing payment method
             this.errorMessage = '';
             this.paymentSuccess = false;
             this.loading = false;
             this.processingPayment = false;
-            
-            // Mount Stripe card element when Stripe is selected
+
             if (this.selectedPaymentMethod === 'stripe' && this.stripe && this.elements && !this.cardElement && !this.isMountingCard && this.isComponentMounted) {
-                // Wait for Vue to render the card element div
                 this.$nextTick(() => {
                     this.$nextTick(() => {
                         requestAnimationFrame(() => {
@@ -961,7 +950,6 @@ export default {
                                     if (ref && ref.parentNode && ref.isConnected) {
                                         this.mountCardElement();
                                     } else {
-                                        // Retry after a delay if ref not ready
                                         setTimeout(() => {
                                             const retryRef = this.$refs.cardElementRef;
                                             if (this.$el && this.stripe && this.elements && this.selectedPaymentMethod === 'stripe' && !this.cardElement && !this.isMountingCard && this.isComponentMounted && retryRef && retryRef.parentNode && retryRef.isConnected) {
@@ -978,22 +966,18 @@ export default {
         },
         
         getSubmitButtonDisabled() {
-            // Validate personal information
             if (Object.keys(this.formErrors).length > 0) {
                 return true;
             }
-            
-            // Validate cart
+
             if (!this.cart || this.cart.length === 0) {
                 return true;
             }
-            
-            // Validate payment method specific requirements
+
             if (this.selectedPaymentMethod === 'stripe') {
                 return this.loading || !this.isValidForm || this.processingPayment || !this.cardElement;
             }
-            
-            // For COD, only check loading states
+
             return this.loading || this.processingPayment;
         },
         
@@ -1003,7 +987,6 @@ export default {
             this.errorMessage = '';
             this.paymentSuccess = false;
 
-            // Validate personal information first
             Object.keys(this.userDetail).forEach(key => {
                 this.validateField(key);
             });
@@ -1015,7 +998,6 @@ export default {
                 return;
             }
 
-            // Validate cart
             if (!this.cart || this.cart.length === 0) {
                 this.errorMessage = 'Your cart is empty';
                 this.loading = false;
@@ -1023,7 +1005,6 @@ export default {
                 return;
             }
 
-            // Handle different payment methods
             if (this.selectedPaymentMethod === 'cod') {
                 await this.handleCOD();
                 return;
@@ -1035,10 +1016,21 @@ export default {
         
         async handleCOD() {
             try {
-                // Create order with COD payment method
-                // Update order status to 'Ordered' with COD payment method
-                // For COD, we don't need payment processing, just update order status
-                console.log('this.cart', this.cart);
+                const orderNumber = this.cart[0]?.order_number || `ORD-${Date.now()}`;
+                const totalAmount = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                
+                trackOrderAttempt({
+                    orderNumber: orderNumber,
+                    paymentMethod: 'COD',
+                    totalAmount: totalAmount,
+                    items: this.cart.map(item => ({
+                        product_id: item.product_id,
+                        product_name: item.name || item.product_name,
+                        price: item.price,
+                        quantity: item.quantity
+                    })),
+                    userId: this.user.id
+                });
                 
                 const response = await createStripe({ 
                     cart: this.cart.map(item => ({
@@ -1047,6 +1039,7 @@ export default {
                         price: item.price,
                         quantity: item.quantity
                     })), 
+                    orderNumber: orderNumber,
                     orderId: this.cart[0].order_id,
                     userDetail: {
                         ...this.userDetail,
@@ -1056,18 +1049,52 @@ export default {
                 });
 
                 if (response && (response.success || response.status)) {
+                    // Track successful order placement
+                    trackOrderPlaced({
+                        orderNumber: orderNumber,
+                        paymentMethod: 'COD',
+                        totalAmount: totalAmount,
+                        items: this.cart.map(item => ({
+                            product_id: item.product_id,
+                            product_name: item.name || item.product_name,
+                            price: item.price,
+                            quantity: item.quantity
+                        })),
+                        userId: this.user.id,
+                        userEmail: this.userDetail.email,
+                        status: 'Processing'
+                    });
+                    
                     this.paymentSuccess = true;
                     setTimeout(() => {
                         this.$router.push('/order-success');
                         this.cart = [];
                     }, 1500);
                 } else {
+                    // Track order failure
+                    trackOrderFailure({
+                        orderNumber: orderNumber,
+                        paymentMethod: 'COD',
+                        error: response.error || 'Order placement failed',
+                        userId: this.user.id
+                    });
+                    
                     this.errorMessage = response.error || 'Failed to place order. Please try again.';
                     this.loading = false;
                     this.processingPayment = false;
                 }
             } catch (error) {
                 console.error('COD Order Error:', error);
+                
+                // Track order failure
+                const orderNumber = this.cart[0]?.order_number || `ORD-${Date.now()}`;
+                trackOrderFailure({
+                    orderNumber: orderNumber,
+                    paymentMethod: 'COD',
+                    error: error,
+                    userId: this.user.id
+                });
+                
                 this.errorMessage = error.response?.data?.error || error.message || 'There was an error placing your order. Please try again.';
                 this.loading = false;
                 this.processingPayment = false;
@@ -1075,7 +1102,6 @@ export default {
         },
         
         async handleStripePayment() {
-            // Validate Stripe card element
             if (!this.cardElement || !this.isValidForm) {
                 this.errorMessage = 'Please enter valid card details';
                 this.loading = false;
@@ -1109,6 +1135,23 @@ export default {
 
                 console.log('this.cart', this.cart);
 
+                // Track order attempt
+                const orderNumber = this.cart[0]?.order_number || `ORD-${Date.now()}`;
+                const totalAmount = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                
+                trackOrderAttempt({
+                    orderNumber: orderNumber,
+                    paymentMethod: 'Stripe',
+                    totalAmount: totalAmount,
+                    items: this.cart.map(item => ({
+                        product_id: item.product_id,
+                        product_name: item.name || item.product_name,
+                        price: item.price,
+                        quantity: item.quantity
+                    })),
+                    userId: this.user.id
+                });
+
                 // Call backend API to create a Stripe session
                 const response = await createStripe({ 
                     orderNumber: this.cart[0].order_number,
@@ -1125,6 +1168,14 @@ export default {
                 });
 
                 if (!response || !response.clientSecret) {
+                    // Track order failure
+                    trackOrderFailure({
+                        orderNumber: orderNumber,
+                        paymentMethod: 'Stripe',
+                        error: 'Failed to initialize payment',
+                        userId: this.user.id
+                    });
+                    
                     this.errorMessage = 'Failed to initialize payment. Please try again.';
                     this.loading = false;
                     this.processingPayment = false;
@@ -1139,6 +1190,14 @@ export default {
                 });
 
                 if (stripeError) {
+                    // Track order failure
+                    trackOrderFailure({
+                        orderNumber: orderNumber,
+                        paymentMethod: 'Stripe',
+                        error: stripeError.message || stripeError,
+                        userId: this.user.id
+                    });
+                    
                     this.errorMessage = stripeError.message;
                     this.loading = false;
                     this.processingPayment = false;
@@ -1147,6 +1206,22 @@ export default {
 
                 // Check payment status
                 if (paymentIntent && paymentIntent.status === 'succeeded') {
+                    // Track successful order placement
+                    trackOrderPlaced({
+                        orderNumber: orderNumber,
+                        paymentMethod: 'Stripe',
+                        totalAmount: totalAmount,
+                        items: this.cart.map(item => ({
+                            product_id: item.product_id,
+                            product_name: item.name || item.product_name,
+                            price: item.price,
+                            quantity: item.quantity
+                        })),
+                        userId: this.user.id,
+                        userEmail: this.userDetail.email,
+                        status: 'Processing'
+                    });
+                    
                     // Success!
                     this.paymentSuccess = true;
                     setTimeout(() => {
@@ -1154,12 +1229,30 @@ export default {
                         this.cart = [];
                     }, 1500);
                 } else {
+                    // Track order failure
+                    trackOrderFailure({
+                        orderNumber: orderNumber,
+                        paymentMethod: 'Stripe',
+                        error: 'Payment was not completed',
+                        userId: this.user.id
+                    });
+                    
                     this.errorMessage = 'Payment was not completed. Please try again.';
                     this.loading = false;
                     this.processingPayment = false;
                 }
             } catch (error) {
                 console.error('Payment Error:', error);
+                
+                // Track order failure
+                const orderNumber = this.cart[0]?.order_number || `ORD-${Date.now()}`;
+                trackOrderFailure({
+                    orderNumber: orderNumber,
+                    paymentMethod: 'Stripe',
+                    error: error,
+                    userId: this.user.id
+                });
+                
                 this.errorMessage = error.response?.data?.error || error.message || 'There was an error processing your payment. Please try again.';
                 this.loading = false;
                 this.processingPayment = false;
@@ -1667,7 +1760,6 @@ export default {
 }
 
 .empty-cart {
-    margin-top: 3rem;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1678,11 +1770,9 @@ export default {
 }
 
 .empty-cart svg {
-    width: 120px;
-    height: 120px;
-    color: var(--text-tertiary);
-    margin-bottom: 1.5rem;
-    opacity: 0.5;
+    width: 50px;
+    height: 20px;
+    color: #ffffff;
 }
 
 .empty-cart h2 {

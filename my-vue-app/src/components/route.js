@@ -10,6 +10,8 @@ import ProductDetail from './views/Product-Detail.vue';
 import PaymentSuccess from './views/PaymentSuccess.vue';
 import ProductsComponent from './views/Products.vue';
 import Profile from './views/Profile.vue';
+import TrackOrder from './views/TrackOrder.vue';
+import MyOrders from './views/MyOrders.vue';
 
 const routes = [
     { path: '/', component: HomeComponent },
@@ -23,6 +25,8 @@ const routes = [
     { path: '/order-success', component: PaymentSuccess},
     { path: '/products', component: ProductsComponent },
     { path: '/profile', component: Profile },
+    { path: '/track-order/:orderNumber?', component: TrackOrder },
+    { path: '/my-orders', component: MyOrders },
 ];
 
 const router = createRouter({

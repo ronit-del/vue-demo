@@ -322,6 +322,9 @@ router.get("/:id/orders", async (req, res) => {
                         json_build_object(
                             'id', od.id,
                             'product_id', od.product_id,
+                            'product_code', p.product_code,
+                            'product_name', p.name,
+                            'product_image', p.image,
                             'base_price', od.base_price,
                             'quantity', od.quantity,
                             'total_amount', od.total_amount,
@@ -332,7 +335,8 @@ router.get("/:id/orders", async (req, res) => {
                 ) as order_items
             FROM orders o
             LEFT JOIN order_details od ON od.order_id = o.id
-            WHERE o.user_id = $1
+            LEFT JOIN products p ON p.id = od.product_id
+            WHERE o.user_id = $1 AND o.status != 'Pending'
             GROUP BY o.id, o.order_number, o.total_amount, o.payment_type, 
                      o.status, o.created_at, o.updated_at
             ORDER BY o.created_at DESC

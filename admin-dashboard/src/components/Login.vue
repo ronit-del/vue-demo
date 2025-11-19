@@ -28,15 +28,7 @@
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="input-icon">
               <path d="M2.5 6.66667L9.0755 11.0504C9.63533 11.4236 10.3647 11.4236 10.9245 11.0504L17.5 6.66667M4.16667 15H15.8333C16.7538 15 17.5 14.2538 17.5 13.3333V6.66667C17.5 5.74619 16.7538 5 15.8333 5H4.16667C3.24619 5 2.5 5.74619 2.5 6.66667V13.3333C2.5 14.2538 3.24619 15 4.16667 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <input
-              id="email"
-              type="email"
-              v-model="email"
-              placeholder="Enter your email"
-              class="form-input"
-              :class="{ 'error': formErrors.email }"
-              required
-            />
+            <input id="email" type="email" class="form-input" v-model="email" placeholder="Enter your email" required :class="{ 'error': formErrors.email }" />
           </div>
           <span v-if="formErrors.email" class="field-error">{{ formErrors.email }}</span>
         </div>
@@ -53,23 +45,21 @@
               :class="{ 'error': formErrors.password }"
             />
             <button type="button" class="password-toggle" tabindex="-1" @click="togglePassword">
-              <svg v-if="showPassword" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M10 3C14.4183 3 18 6.58172 18 11C18 13.2091 16.7909 15.2091 15 16.618M10 3C5.58172 3 2 6.58172 2 11C2 13.2091 3.20914 15.2091 5 16.618M10 3V1M18 11L20 13M2 11L0 13M15 16.618L13.5 18.5M5 16.618L6.5 18.5M10 13C11.6569 13 13 11.6569 13 10C13 8.34315 11.6569 7 10 7C8.34315 7 7 8.34315 7 10C7 11.6569 8.34315 13 10 13Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg v-if="showPassword" width="24" height="24" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M1 10C1 10 4 5 10 5C16 5 19 10 19 10C19 10 16 15 10 15C4 15 1 10 1 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M10 12C11.1046 12 12 11.1046 12 10C12 8.89543 11.1046 8 10 8C8.89543 8 8 8.89543 8 10C8 11.1046 8.89543 12 10 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg v-else width="24" height="24" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 10C1 10 4 5 10 5C16 5 19 10 19 10C19 10 16 15 10 15C4 15 1 10 1 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M10 12C11.1046 12 12 11.1046 12 10C12 8.89543 11.1046 8 10 8C8.89543 8 8 8.89543 8 10C8 11.1046 8.89543 12 10 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 2L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
           </div>
           <span v-if="formErrors.password" class="field-error">{{ formErrors.password }}</span>
         </div>
 
-        <button
-          type="submit"
-          class="login-button"
-          :disabled="isLoading || hasErrors"
-        >
+        <button type="submit" class="login-button" :disabled="isLoading || hasErrors">
           <span v-if="isLoading" class="spinner"></span>
           <span v-else>Sign In</span>
         </button>

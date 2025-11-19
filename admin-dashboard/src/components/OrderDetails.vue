@@ -4,18 +4,26 @@
       <div class="header-content">
         <div class="header-info">
           <button class="btn-back" @click="$router.push('/orders')">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 16L6 10L12 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" />
-            </svg>
+            <div class="dflex">
+              <div>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 16L6 10L12 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </div>
+              <div>
+                <span>
+                  Back to Order(s) List
+                </span>
+              </div>
+            </div>
           </button>
-          <div>
+          <!-- <div>
             <h1 class="page-title">Order Details</h1>
             <p class="page-subtitle">Order: {{ order.order_number || 'Loading...' }}</p>
-          </div>
+          </div> -->
         </div>
-        <div class="header-actions">
-          <button class="btn btn-secondary" @click="$router.push(`/orders/${order.id}/edit`)">
+        <div class="header-actions" v-if="order.status !== 'Cancelled'">
+          <button class="btn btn-primary" @click="$router.push(`/orders/${order.id}/edit`)">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M11 3L15 7L5 17H1V13L11 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                 stroke-linejoin="round" />
@@ -37,7 +45,8 @@
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path
           d="M24 16V24M24 32H24.02M42 24C42 33.9411 33.9411 42 24 42C14.0589 42 6 33.9411 6 24C6 14.0589 14.0589 6 24 6C33.9411 6 42 14.0589 42 24Z"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+        />
       </svg>
       <p>{{ error }}</p>
       <button class="btn btn-primary" @click="fetchOrder">Retry</button>
@@ -62,10 +71,19 @@
             <span class="info-value">{{ formatDate(order.updated_at) }}</span>
           </div>
         </div>
+        <div v-if="order.status === 'Cancelled' && order.cancellation_reason" class="cancellation-reason">
+          <div class="cancellation-header">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10 6V10M10 14H10.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="cancellation-label">Cancellation Reason</span>
+          </div>
+          <div class="cancellation-text">{{ order.cancellation_reason }}</div>
+        </div>
       </div>
 
       <div class="details-grid">
-        <!-- Customer Information -->
         <div class="detail-card">
           <div class="card-header">
             <h3 class="card-title">
@@ -104,7 +122,7 @@
             <div class="detail-row" v-if="order.customer_country || order.customer_postal_code">
               <span class="detail-label">Location</span>
               <span class="detail-value">
-                {{ [order.customer_country, order.customer_postal_code].filter(Boolean).join(', ') || 'N/A' }}
+                {{ [formatCountry(order.customer_country), order.customer_postal_code].filter(Boolean).join(', ') || 'N/A' }}
               </span>
             </div>
           </div>
@@ -176,7 +194,7 @@
                 </div>
               </div>
               <div class="item-image">
-                <img :src="getImageUrl(item.product_image)" alt="Product Image">
+                <img :src="item.product_image" alt="Product Image">
               </div>
               <div class="item-total">
                 ${{ formatCurrency(item.total_amount) }}
@@ -196,7 +214,7 @@
 </template>
 
 <script>
-import { getOrderById } from '../services/api';
+import { getOrderById, COUNTRIES } from '../services/api';
 
 export default {
   name: 'OrderDetails',
@@ -208,23 +226,15 @@ export default {
         customer: '',
         status: '',
         total: 0,
+        cancellation_reason: null,
         order_items: []
       },
       loading: true,
       error: null
     }
   },
+
   methods: {
-    getImageUrl(imagePath) {
-      if (!imagePath) return '';
-      // If image path is relative, construct full URL
-      if (imagePath.startsWith('http')) {
-        return imagePath;
-      }
-      // For relative paths, assume they're in the public folder or assets
-      const baseURL = process.env.VUE_APP_FRONTEND_URL || 'http://192.168.0.111:8080';
-      return `${baseURL}/${imagePath}`;
-    },
     async fetchOrder() {
       this.loading = true;
       this.error = null;
@@ -250,7 +260,7 @@ export default {
           customer_country: 'United States',
           customer_postal_code: '12345',
           status: 'Pending',
-          payment_type: 'Credit Card',
+          payment_type: 'Stripe',
           total: 299.99,
           date: new Date(),
           updated_at: new Date(),
@@ -262,6 +272,7 @@ export default {
         this.loading = false;
       }
     },
+
     getStatusClass(status) {
       const statusMap = {
         // 'Pending': 'status-pending',
@@ -273,9 +284,11 @@ export default {
       };
       return statusMap[status] || 'status-default';
     },
+
     formatCurrency(value) {
       return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
     },
+
     formatDate(date) {
       if (!date) return 'N/A';
       return new Intl.DateTimeFormat('en-US', {
@@ -285,11 +298,17 @@ export default {
         hour: '2-digit',
         minute: '2-digit'
       }).format(new Date(date));
+    },
+
+    formatCountry(country) {
+      return COUNTRIES[country];
     }
   },
+
   created() {
     this.fetchOrder();
   },
+
   watch: {
     '$route.params.id'() {
       this.fetchOrder();
@@ -321,21 +340,6 @@ export default {
   display: flex;
   align-items: center;
   gap: 1rem;
-}
-
-.btn-back {
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: all 0.2s ease;
-  flex-shrink: 0;
 }
 
 .btn-back:hover {
@@ -391,9 +395,15 @@ export default {
   border: 1px solid var(--border-color);
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background: var(--bg-tertiary);
   border-color: var(--border-color);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .loading-state,
@@ -481,7 +491,7 @@ export default {
 
 .status-shipped {
   background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  color: var(--info-color);
 }
 
 .status-delivered {
@@ -508,6 +518,7 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .info-item {
@@ -527,6 +538,44 @@ export default {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.cancellation-reason {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.cancellation-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.cancellation-header svg {
+  color: var(--danger-color);
+  flex-shrink: 0;
+}
+
+.cancellation-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cancellation-text {
+  padding: 1rem;
+  background: rgba(239, 68, 68, 0.05);
+  border-left: 3px solid var(--danger-color);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .details-grid {

@@ -34,6 +34,7 @@
             ErrorComponent,
             SuccessComponent
         },
+
         data() {
             return {
                 token: this.$route.params.token,
@@ -43,10 +44,12 @@
                 isEmailVerified: false // New data property to track verification status
             }
         },
+
         mounted() {
             // Check if the email is already verified on mount
             this.checkIfEmailVerified();
         },
+
         methods: {
             checkIfEmailVerified() {
                 verifyData(this.token)
@@ -69,9 +72,11 @@
                     }
                 );
             },
+
             redirectLogin() {
                 this.$router.push('/login');
             },
+
             handleVerify() {
                 if (this.isEmailVerified) return;  // Prevent verification if already verified
 

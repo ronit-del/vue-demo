@@ -58,6 +58,7 @@
             ErrorComponent,
             SuccessComponent
         },
+
         data() {
             return {
                 password: '',
@@ -71,6 +72,7 @@
                 showConfirmPassword: false
             };
         },
+
         methods: {
             togglePasswordVisibility(field) {
                 if (field === 'password') {
@@ -105,7 +107,6 @@
             },
 
             handleResetPassword() {
-                // Call validations before submitting
                 this.validatePassword();
                 this.validateConfirmPassword();
 
@@ -113,7 +114,6 @@
                     return;
                 }
 
-                // If validation passes, proceed with the login request
                 this.isLoading = true;
                 const data = {
                     password: this.password,

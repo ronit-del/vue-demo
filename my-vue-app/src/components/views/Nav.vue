@@ -7,7 +7,9 @@
                     <path d="M9 19C9.55228 19 10 18.5523 10 18C10 17.4477 9.55228 17 9 17C8.44772 17 8 17.4477 8 18C8 18.5523 8.44772 19 9 19Z" stroke="currentColor" stroke-width="2"/>
                     <path d="M15 19C15.5523 19 16 18.5523 16 18C16 17.4477 15.5523 17 15 17C14.4477 17 14 17.4477 14 18C14 18.5523 14.4477 19 15 19Z" stroke="currentColor" stroke-width="2"/>
                 </svg>
-                <span>SmartShop</span>
+                <span>
+                    SmartShop
+                </span>
             </router-link>
             <button class="navbar-toggler" type="button" @click="toggleMobileMenu" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
@@ -32,11 +34,21 @@
                         </router-link>
                     </li>
                     <li class="nav-item" v-if="this.user">
-                        <router-link to="/checkout" class="nav-link">
+                        <router-link to="/checkout" class="nav-link" active-class="active">
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M3 3H17L16 11H4L3 3ZM3 3L2 1M5 15H7M17 15H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                             Cart
+                        </router-link>
+                    </li>
+                    <li class="nav-item" v-if="this.user">
+                        <router-link to="/my-orders" class="nav-link" active-class="active">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M3 3H17L16 11H4L3 3ZM3 3L2 1M5 15H7M17 15H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M9 19C9.55228 19 10 18.5523 10 18C10 17.4477 9.55228 17 9 17C8.44772 17 8 17.4477 8 18C8 18.5523 8.44772 19 9 19Z" stroke="currentColor" stroke-width="2"/>
+                                <path d="M15 19C15.5523 19 16 18.5523 16 18C16 17.4477 15.5523 17 15 17C14.4477 17 14 17.4477 14 18C14 18.5523 14.4477 19 15 19Z" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            My Orders
                         </router-link>
                     </li>
                     <li class="nav-item" v-if="this.user">
@@ -212,11 +224,17 @@ export default {
 .nav-link:hover {
     color: var(--primary-color);
     background: var(--bg-secondary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
 
 .nav-link.router-link-active {
     color: var(--primary-color);
     background: rgba(99, 102, 241, 0.1);
+}
+
+.nav-link.active {
+    box-shadow: 0 0 0 2px var(--primary-color);
 }
 
 .logout-link {

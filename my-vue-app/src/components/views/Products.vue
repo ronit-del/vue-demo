@@ -20,12 +20,8 @@
                             All Products
                             <span class="count">({{ products.length }})</span>
                         </button>
-                        <button 
-                            v-for="category in categories" 
-                            :key="category.id"
-                            class="category-filter-btn"
-                            :class="{ active: selectedCategory === category.id }"
-                            @click="filterByCategory(category.id)"
+                        <button v-for="category in categories" :key="category.id" class="category-filter-btn"
+                            :class="{ active: selectedCategory === category.id }" @click="filterByCategory(category.id)"
                         >
                             {{ category.name }}
                             <span class="count">({{ getCategoryCount(category.id) }})</span>
@@ -68,12 +64,7 @@
                     <p>No products found in this category.</p>
                 </div>
                 <div v-else class="products-grid">
-                    <div 
-                        v-for="product in sortedProducts" 
-                        :key="product.id" 
-                        class="product-card"
-                        @click="viewProduct(product)"
-                    >
+                    <div v-for="product in sortedProducts" :key="product.id" class="product-card" @click="viewProduct(product)">
                         <div class="product-image-wrapper">
                             <img :src="product.image" :alt="product.name" />
                         </div>
@@ -138,6 +129,7 @@
                 ]
             };
         },
+
         computed: {
             filteredProducts() {
                 if (!this.selectedCategory) {
@@ -148,6 +140,7 @@
                     return category === this.selectedCategory;
                 });
             },
+
             sortedProducts() {
                 const products = [...this.filteredProducts];
                 
@@ -165,6 +158,7 @@
                 }
             }
         },
+
         methods: {
             getProductCategory(product) {
                 if (product.image && product.image.includes('electronics')) {
@@ -178,19 +172,23 @@
                 }
                 return null;
             },
+
             filterByCategory(categoryId) {
                 this.selectedCategory = categoryId;
             },
+
             getCategoryCount(categoryId) {
                 return this.products.filter(product => {
                     const category = this.getProductCategory(product);
                     return category === categoryId;
                 }).length;
             },
+
             resolveImagePath(image) {
                 if (!image) return '';
                 return `/${image}`;
             },
+
             async getProductRatingData(product_id) {
                 const user = JSON.parse(localStorage.getItem('user'));
                 const data = { user_id: user?.id || null, product_id };
@@ -210,10 +208,12 @@
                     this.averageRatings[product_id] = 0;
                 }
             },
+
             viewProduct(product) {
                 console.log('product', product);
                 this.$router.push(`/product-detail/${product.id}`);
             },
+
             async fetchProducts() {
                 this.loading = true;
                 this.error = null;
@@ -235,15 +235,17 @@
                 }
             }
         },
+
         mounted() {
             // Check if category is passed via route query
             if (this.$route.query.category) {
                 this.selectedCategory = this.$route.query.category;
             }
-            
+
             // Fetch products from database
             this.fetchProducts();
         },
+
         watch: {
             filteredProducts() {
                 // Load ratings when products change

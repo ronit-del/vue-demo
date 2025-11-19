@@ -148,6 +148,7 @@ class DatabaseManager {
         total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
         payment_type VARCHAR(50),
         status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded')),
+        cancellation_reason TEXT, -- Reason for order cancellation
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
@@ -200,7 +201,30 @@ class DatabaseManager {
         is_read BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         read_at TIMESTAMP
-      )`
+      )`,
+
+      // Order tracking table for analytics
+      `CREATE TABLE IF NOT EXISTS order_tracking (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('order_placed', 'order_attempt', 'order_failed')),
+        order_number VARCHAR(100) NOT NULL,
+        payment_method VARCHAR(50),
+        total_amount DECIMAL(10, 2) DEFAULT 0,
+        currency VARCHAR(10) DEFAULT 'USD',
+        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        user_email VARCHAR(255),
+        order_status VARCHAR(50),
+        item_count INT DEFAULT 0,
+        items_data JSONB,
+        timestamp TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`,
+      
+      // Index for faster queries
+      `CREATE INDEX IF NOT EXISTS idx_order_tracking_order_number ON order_tracking(order_number)`,
+      `CREATE INDEX IF NOT EXISTS idx_order_tracking_event_type ON order_tracking(event_type)`,
+      `CREATE INDEX IF NOT EXISTS idx_order_tracking_created_at ON order_tracking(created_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_order_tracking_user_id ON order_tracking(user_id)`
     ];
 
     for (const tableSQL of tables) {
@@ -228,6 +252,12 @@ class DatabaseManager {
         column: 'category',
         type: 'VARCHAR(50)',
         check: `SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'category'`
+      },
+      {
+        table: 'orders',
+        column: 'cancellation_reason',
+        type: 'TEXT',
+        check: `SELECT 1 FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'cancellation_reason'`
       }
     ];
 

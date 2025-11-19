@@ -1,61 +1,67 @@
 <template>
   <div class="order-page">
-    <div class="page-header">
+    <!-- <div class="page-header">
       <div class="header-content">
         <div class="header-info">
           <h1 class="page-title">Orders</h1>
           <p class="page-subtitle">Manage and track all orders</p>
         </div>
-        <!-- <button class="btn btn-primary" @click="showAddModal = true">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 4V16M10 4L6 8M10 4L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          New Order
-        </button> -->
       </div>
-    </div>
+    </div> -->
 
     <div class="stats-bar">
       <div class="stat-item">
-        <span class="stat-label">Total Orders</span>
-        <span class="stat-value">{{ orders.length }}</span>
+        <span class="stat-label">{{ activeTab === 'cancelled' ? 'Cancelled Orders' : 'Total Orders' }}</span>
+        <span class="stat-value">{{ currentTabOrdersCount }}</span>
       </div>
-      <div class="stat-item">
+      <div class="stat-item" v-if="activeTab === 'all'">
         <span class="stat-label">Processing</span>
         <span class="stat-value stat-value-warning">{{ processingCount }}</span>
       </div>
-      <div class="stat-item">
+      <div class="stat-item" v-if="activeTab === 'all'">
         <span class="stat-label">Completed</span>
         <span class="stat-value stat-value-success">{{ completedCount }}</span>
       </div>
       <div class="stat-item">
-        <span class="stat-label">Total Revenue</span>
+        <span class="stat-label">{{ activeTab === 'cancelled' ? 'Cancelled Value' : 'Total Revenue' }}</span>
         <span class="stat-value stat-value-primary">${{ formatCurrency(totalRevenue) }}</span>
       </div>
     </div>
 
     <div class="content-card">
+      <div class="tabs-container">
+        <div class="tabs">
+          <button class="tab-button" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
+            All Orders
+            <span class="tab-badge">{{ allOrdersCount }}</span>
+          </button>
+          <button class="tab-button" :class="{ active: activeTab === 'cancelled' }" @click="activeTab = 'cancelled'">
+            Cancelled Orders
+            <span class="tab-badge">{{ cancelledOrdersCount }}</span>
+          </button>
+        </div>
+      </div>
+
       <div class="table-header">
         <div class="search-box">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M9 17C13.4183 17 17 13.4183 17 9C17 4.58172 13.4183 1 9 1C4.58172 1 1 4.58172 1 9C1 13.4183 4.58172 17 9 17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M19 19L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search orders by order number, customer, status, or total..." 
-            class="search-input"
-          />
+          <input type="text" class="search-input" v-model="searchQuery" placeholder="Search orders by order number, customer, status, or total..." />
         </div>
         <div class="filter-group">
-          <select v-model="statusFilter" class="filter-select">
-            <option value="">All Status</option>
+          <select v-model="paymentFilter" class="filter-select" v-if="activeTab === 'all'">
+            <option value="">All Payment Type</option>
+            <option value="COD">COD</option>
+            <option value="Stripe">Stripe</option>
+          </select>
+          <select v-model="statusFilter" class="filter-select" v-if="activeTab === 'all'">
+            <option value=""> All Status</option>
             <option value="Pending">Pending</option>
             <option value="Processing">Processing</option>
             <option value="Shipped">Shipped</option>
             <option value="Delivered">Delivered</option>
-            <option value="Cancelled">Cancelled</option>
           </select>
           <button class="btn-icon" title="Export" @click="exportToCSV">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -92,6 +98,7 @@
                 </div>
               </th>
               <th>Status</th>
+              <th>Payment Type</th>
               <th>
                 <div class="table-header-cell">
                   <span>Total</span>
@@ -139,6 +146,11 @@
                 </span>
               </td>
               <td>
+                <span class="status-badge" :class="getStatusClass(order.payment_type)">
+                  {{ order.payment_type }}
+                </span>
+              </td>
+              <td>
                 <span class="cell-amount">${{ formatCurrency(order.total || 0) }}</span>
               </td>
               <td class="text-right">
@@ -149,7 +161,11 @@
                       <path d="M9 11C10.1046 11 11 10.1046 11 9C11 7.89543 10.1046 7 9 7C7.89543 7 7 7.89543 7 9C7 10.1046 7.89543 11 9 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                   </button>
-                  <button class="btn-action" title="Edit" @click="$router.push(`/orders/${order.id}/edit`)">
+                  <button 
+                    v-if="order.status !== 'Cancelled'"
+                    class="btn-action" 
+                    title="Edit" 
+                    @click="$router.push(`/orders/${order.id}/edit`)">
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M11 3L15 7L5 17H1V13L11 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                       <path d="M9 5L13 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -164,7 +180,7 @@
               </td>
             </tr>
             <tr v-if="filteredOrders.length > 0" class="table-footer-row">
-              <td colspan="3" class="text-right">
+              <td colspan="4" class="text-right">
                 <strong>Total:</strong>
               </td>
               <td></td>
@@ -192,7 +208,9 @@
               <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
-          <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+          <span class="page-info">
+            Page {{ currentPage }} of {{ totalPages }}
+          </span>
           <button class="btn-pagination" :disabled="currentPage === totalPages" @click="currentPage++">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -211,13 +229,16 @@ export default {
     return {
       searchQuery: '',
       statusFilter: '',
+      paymentFilter: '',
       currentPage: 1,
       itemsPerPage: 10,
       sortField: 'id',
       sortOrder: 'asc',
-      showAddModal: false
+      showAddModal: false,
+      activeTab: 'all'
     }
   },
+
   computed: {
     orders() {
       const storeOrders = this.$store.state.orders;
@@ -228,17 +249,39 @@ export default {
         }));
       }
       return [];
-      /* // Sample data
-      return [
-        { id: 1001, order_number: 'ORD-1001', customer: 'John Doe', status: 'Pending', total: 299.99, date: new Date() },
-        { id: 1002, order_number: 'ORD-1002', customer: 'Jane Smith', status: 'Processing', total: 549.50, date: new Date(Date.now() - 86400000) },
-        { id: 1003, order_number: 'ORD-1003', customer: 'Bob Johnson', status: 'Shipped', total: 129.99, date: new Date(Date.now() - 172800000) },
-        { id: 1004, order_number: 'ORD-1004', customer: 'Alice Williams', status: 'Delivered', total: 799.00, date: new Date(Date.now() - 259200000) },
-        { id: 1005, order_number: 'ORD-1005', customer: 'Charlie Brown', status: 'Cancelled', total: 199.99, date: new Date(Date.now() - 345600000) }
-      ]; */
     },
+
+    allOrdersCount() {
+      return this.orders.filter(o => 
+        o.status === 'Pending' || o.status === 'Processing' || o.status === 'Shipped' || o.status === 'Delivered'
+      ).length;
+    },
+
+    cancelledOrdersCount() {
+      return this.orders.filter(o => o.status === 'Cancelled').length;
+    },
+
     filteredOrders() {
-      let filtered = this.orders;
+      let filtered;
+      
+      if (this.activeTab === 'all') {
+        filtered = this.orders.filter(o => 
+          o.status === 'Pending' || 
+          o.status === 'Processing' || 
+          o.status === 'Shipped' || 
+          o.status === 'Delivered'
+        );
+
+        if (this.statusFilter) {
+          filtered = filtered.filter(order => order.status === this.statusFilter);
+        }
+
+        if(this.paymentFilter) {
+          filtered = filtered.filter(order => order.payment_type === this.paymentFilter);
+        }
+      } else {
+        filtered = this.orders.filter(o => o.status === 'Cancelled');
+      }
 
       if (this.searchQuery) {
         const query = this.searchQuery.toLowerCase();
@@ -250,11 +293,6 @@ export default {
         );
       }
       
-      if (this.statusFilter) {
-        filtered = filtered.filter(order => order.status === this.statusFilter);
-      }
-      
-      // Apply sorting
       if (this.sortField) {
         filtered = [...filtered].sort((a, b) => {
           let aValue, bValue;
@@ -285,49 +323,85 @@ export default {
       
       return filtered;
     },
+
     processingCount() {
+      if (this.activeTab === 'cancelled') {
+        return 0;
+      }
       return this.orders.filter(o => o.status === 'Processing').length;
     },
+
     completedCount() {
+      if (this.activeTab === 'cancelled') {
+        return 0;
+      }
       return this.orders.filter(o => o.status === 'Delivered').length;
     },
+
     totalRevenue() {
-      return this.orders.reduce((sum, order) => sum + (order.total || 0), 0);
+      if (this.activeTab === 'cancelled') {
+        const cancelledOrders = this.orders.filter(o => o.status === 'Cancelled');
+        return cancelledOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+      }
+
+      const orders = this.orders.filter(o => o.status === 'Processing' || o.status === 'Shipped' || o.status === 'Delivered');
+      return orders.reduce((sum, order) => sum + (order.total || 0), 0);
     },
+
+    currentTabOrdersCount() {
+      if (this.activeTab === 'cancelled') {
+        return this.cancelledOrdersCount;
+      }
+      return this.allOrdersCount;
+    },
+
     totalPages() {
       return Math.ceil(this.filteredOrders.length / this.itemsPerPage) || 1;
     },
+
     filteredOrdersTotal() {
-      return this.filteredOrders.reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+      // return this.filteredOrders.reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+      return this.paginatedOrders.reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
     },
+
     paginatedOrders() {
       const start = (this.currentPage - 1) * this.itemsPerPage;
       const end = start + this.itemsPerPage;
       return this.filteredOrders.slice(start, end);
     },
+
     paginationStart() {
       if (this.filteredOrders.length === 0) return 0;
       return (this.currentPage - 1) * this.itemsPerPage + 1;
     },
+
     paginationEnd() {
       const end = this.currentPage * this.itemsPerPage;
       return Math.min(end, this.filteredOrders.length);
     }
   },
+
   watch: {
     searchQuery() {
       this.currentPage = 1;
     },
+
     statusFilter() {
       this.currentPage = 1;
     },
+
+    activeTab() {
+      this.currentPage = 1;
+      this.statusFilter = '';
+    },
+
     filteredOrders() {
-      // Reset to page 1 if current page is out of bounds
       if (this.currentPage > this.totalPages && this.totalPages > 0) {
         this.currentPage = 1;
       }
     }
   },
+
   methods: {
     sortBy(field) {
       if (this.sortField === field) {
@@ -337,22 +411,28 @@ export default {
         this.sortOrder = 'asc';
       }
     },
+
     getInitials(name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     },
+
     getStatusClass(status) {
       const statusMap = {
         'Pending': 'status-pending',
         'Processing': 'status-processing',
         'Shipped': 'status-shipped',
         'Delivered': 'status-delivered',
-        'Cancelled': 'status-cancelled'
+        'Cancelled': 'status-cancelled',
+        'COD': 'payment-status-cod',
+        'Stripe': 'payment-status-stripe',
       };
       return statusMap[status] || 'status-default';
     },
+
     formatCurrency(value) {
       return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
     },
+
     formatDate(date) {
       return new Intl.DateTimeFormat('en-US', { 
         year: 'numeric', 
@@ -360,8 +440,8 @@ export default {
         day: 'numeric' 
       }).format(new Date(date));
     },
+
     exportToCSV() {
-      // Escape commas and quotes in CSV values
       const escapeCSV = (value) => {
         if (value === null || value === undefined) return '';
         const stringValue = String(value);
@@ -370,18 +450,16 @@ export default {
         }
         return stringValue;
       };
-      
-      // Prepare CSV headers
+
       const headers = ['Order ID', 'Customer', 'Date', 'Status', 'Total'];
-      
-      // Prepare CSV rows from filtered orders
+
       const rows = this.filteredOrders.map(order => {
         const orderId = order.order_number || order.id;
         const customer = order.customer || '';
         const date = order.date ? this.formatDate(order.date) : (order.created_at ? this.formatDate(order.created_at) : '');
         const status = order.status || '';
         const total = order.total ? `$${this.formatCurrency(order.total)}` : '$0.00';
-        
+
         return [
           escapeCSV(orderId),
           escapeCSV(customer),
@@ -390,48 +468,42 @@ export default {
           escapeCSV(total)
         ];
       });
-      
-      // Add total row
+
       const totalRow = [
-        '', // Order ID
-        '', // Customer
-        '', // Date
-        'Total:', // Status column - show "Total:" label
-        escapeCSV(`$${this.formatCurrency(this.filteredOrdersTotal)}`) // Total
+        '',
+        '',
+        '',
+        'Total:',
+        escapeCSV(`$${this.formatCurrency(this.filteredOrdersTotal)}`)
       ];
-      
-      // Combine headers, rows, and total row
+
       const csvContent = [
         headers.join(','),
         ...rows.map(row => row.join(',')),
         totalRow.join(',')
       ].join('\n');
-      
-      // Add BOM for UTF-8 to support Excel
+
       const BOM = '\uFEFF';
       const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-      
-      // Create download link
+
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      
-      // Generate filename with current date
+
       const now = new Date();
       const dateStr = now.toISOString().split('T')[0];
       const filename = `orders_export_${dateStr}.csv`;
       link.setAttribute('download', filename);
-      
-      // Trigger download
+     
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      // Clean up
+
       URL.revokeObjectURL(url);
     }
   },
+
   created() {
     this.$store.dispatch('fetchOrders');
   }
@@ -546,6 +618,66 @@ export default {
   box-shadow: var(--shadow-md);
   border: 1px solid var(--border-color);
   overflow: hidden;
+}
+
+.tabs-container {
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 1.5rem;
+  background: var(--bg-secondary);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tab-button {
+  position: relative;
+  padding: 1rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: -1px;
+}
+
+.tab-button:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.tab-button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  background: transparent;
+}
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.tab-button.active .tab-badge {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary-color);
 }
 
 .table-header {
@@ -791,7 +923,7 @@ export default {
 
 .status-shipped {
   background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  color: var(--info-color);
 }
 
 .status-delivered {
@@ -807,6 +939,16 @@ export default {
 .status-default {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
+}
+
+.payment-status-stripe {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+}
+
+.payment-status-cod {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary-color);
 }
 
 .action-buttons {
@@ -830,9 +972,15 @@ export default {
   transition: all 0.2s ease;
 }
 
-.btn-action:hover {
+.btn-action:hover:not(:disabled) {
   background: var(--bg-tertiary);
   color: var(--text-primary);
+}
+
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .btn-action-danger:hover {
@@ -895,6 +1043,20 @@ export default {
 @media (max-width: 768px) {
   .stats-bar {
     grid-template-columns: 1fr;
+  }
+  
+  .tabs-container {
+    padding: 0 1rem;
+    overflow-x: auto;
+  }
+  
+  .tabs {
+    min-width: max-content;
+  }
+  
+  .tab-button {
+    padding: 0.875rem 1rem;
+    font-size: 0.8125rem;
   }
   
   .table-header {

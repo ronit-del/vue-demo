@@ -79,28 +79,53 @@
         </div>
       </div>
 
-      <div class="stat-card">
-        <div class="stat-icon stat-icon-danger">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
-              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M12 8V12M12 16H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-              stroke-linejoin="round" />
-          </svg>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-section">
+      <div class="charts-header">
+        <h2 class="section-title">Analytics</h2>
+        <div class="chart-controls">
+          <select v-model="chartType" @change="onChartTypeChange" class="chart-select">
+            <option value="day">Daily</option>
+            <option value="month">Monthly</option>
+            <option value="year">Yearly</option>
+          </select>
+          <select v-model="chartPeriod" @change="fetchChartData" class="chart-select">
+            <option v-for="option in periodOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
         </div>
-        <div class="stat-content">
-          <p class="stat-label">Pending Orders</p>
-          <h3 class="stat-value">{{ stats.pendingOrders }}</h3>
-          <p class="stat-change" :class="getChangeClass(stats.changes?.pendingOrdersChange)">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 12V4M8 4L4 8M8 4L12 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" v-if="(stats.changes?.pendingOrdersChange || 0) >= 0" />
-              <path d="M8 4V12M8 12L4 8M8 12L12 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" v-else />
-            </svg>
-            {{ formatPercentage(stats.changes?.pendingOrdersChange) }}%
-          </p>
+      </div>
+      <div class="charts-grid">
+        <div class="dashboard-card chart-card">
+          <div class="card-header">
+            <h2 class="card-title">Orders</h2>
+          </div>
+          <div class="card-content">
+            <div v-if="chartLoading" class="chart-loading">
+              <div class="spinner"></div>
+              <p>Loading chart data...</p>
+            </div>
+            <div v-else class="chart-container">
+              <LineChart :data="ordersChartData" :options="chartOptions" />
+            </div>
+          </div>
+        </div>
+        <div class="dashboard-card chart-card">
+          <div class="card-header">
+            <h2 class="card-title">Customers</h2>
+          </div>
+          <div class="card-content">
+            <div v-if="chartLoading" class="chart-loading">
+              <div class="spinner"></div>
+              <p>Loading chart data...</p>
+            </div>
+            <div v-else class="chart-container">
+              <LineChart :data="customersChartData" :options="chartOptions" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -152,7 +177,7 @@
               </div>
               <div class="recent-item-info">
                 <p class="recent-item-title">{{ product.name }}</p>
-                <p class="recent-item-subtitle">{{ product.category || 'Uncategorized' }} • Stock: {{ product.stock_quantity || 0 }}</p>
+                <p class="recent-item-subtitle">{{ getCategory(product) }} • Stock: {{ product.stock_quantity || 0 }}</p>
               </div>
               <div class="recent-item-meta">
                 <span class="recent-item-amount">${{ formatCurrency(product.price || 0) }}</span>
@@ -166,37 +191,196 @@
 </template>
 
 <script>
+import { Line as LineChart } from 'vue-chartjs';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { getChartData } from '../services/api';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
+
 export default {
   name: 'DashboardComponent',
+  components: {
+    LineChart
+  },
   data() {
     return {
-      loading: false
+      loading: false,
+      chartLoading: false,
+      chartType: 'day',
+      chartPeriod: '30',
+      chartData: {
+        orders: [],
+        customers: []
+      },
+      chartOptions: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            titleFont: {
+              size: 14,
+              weight: 'bold'
+            },
+            bodyFont: {
+              size: 13
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 1
+            },
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            }
+          }
+        },
+        elements: {
+          line: {
+            tension: 0.4,
+            borderWidth: 3
+          },
+          point: {
+            radius: 4,
+            hoverRadius: 6
+          }
+        }
+      }
     }
   },
+
   computed: {
     stats() {
       return this.$store.state.dashboardStats;
     },
+
     recentOrders() {
       return this.$store.state.orders.slice(0, 5);
     },
+
     recentProducts() {
       return this.$store.state.products.slice(0, 5);
+    },
+
+    ordersChartData() {
+      return {
+        labels: this.chartData.orders.map(item => item.period),
+        datasets: [{
+          label: 'Orders',
+          data: this.chartData.orders.map(item => item.count),
+          borderColor: 'rgb(99, 102, 241)',
+          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          fill: true
+        }]
+      };
+    },
+
+    customersChartData() {
+      return {
+        labels: this.chartData.customers.map(item => item.period),
+        datasets: [{
+          label: 'Customers',
+          data: this.chartData.customers.map(item => item.count),
+          borderColor: 'rgb(16, 185, 129)',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: true
+        }]
+      };
+    },
+
+    periodOptions() {
+      if (this.chartType === 'day') {
+        return [
+          { value: '7', label: 'Last 7 days' },
+          { value: '30', label: 'Last 30 days' },
+          { value: '90', label: 'Last 90 days' }
+        ];
+      } else if (this.chartType === 'month') {
+        return [
+          { value: '3', label: 'Last 3 months' },
+          { value: '6', label: 'Last 6 months' },
+          { value: '12', label: 'Last 12 months' }
+        ];
+      } else if (this.chartType === 'year') {
+        return [
+          { value: '2', label: 'Last 2 years' },
+          { value: '5', label: 'Last 5 years' },
+          { value: '10', label: 'Last 10 years' }
+        ];
+      }
+      return [];
     }
   },
+
   methods: {
+    getCategory(product) {
+      // Use stored category if available, otherwise infer from image path
+      if (product.category) {
+        const categoryMap = {
+          'electronics': 'Electronics',
+          'clothes': 'Clothing',
+          'home_appliances': 'Home Appliances',
+          'beauty': 'Beauty'
+        };
+        return categoryMap[product.category] || product.category;
+      }
+      
+      // Fallback: Extract category from image path
+      if (product.image) {
+        if (product.image.includes('electronics')) return 'Electronics';
+        if (product.image.includes('clothes')) return 'Clothing';
+        if (product.image.includes('home_appliances') || product.image.includes('home appliance')) return 'Home Appliances';
+        if (product.image.includes('beuty') || product.image.includes('beauty')) return 'Beauty';
+      }
+      return 'General';
+    },
+
     formatCurrency(value) {
       return new Intl.NumberFormat('en-US').format(value);
     },
+
     formatPercentage(value) {
       const num = value || 0;
       const sign = num >= 0 ? '+' : '';
       return `${sign}${num.toFixed(1)}`;
     },
+
     getChangeClass(change) {
       const num = change || 0;
       return num >= 0 ? 'stat-change-positive' : 'stat-change-negative';
     },
+
     getStatusClass(status) {
       const statusMap = {
         'Pending': 'status-pending',
@@ -206,14 +390,49 @@ export default {
         'Cancelled': 'status-cancelled'
       };
       return statusMap[status] || 'status-default';
+    },
+
+    async fetchChartData() {
+      this.chartLoading = true;
+      try {
+        const response = await getChartData(this.chartType, this.chartPeriod);
+        if (response.success && response.data) {
+          this.chartData = {
+            orders: response.data.orders || [],
+            customers: response.data.customers || []
+          };
+        }
+      } catch (error) {
+        console.error('Error fetching chart data:', error);
+        this.chartData = {
+          orders: [],
+          customers: []
+        };
+      } finally {
+        this.chartLoading = false;
+      }
+    },
+
+    onChartTypeChange() {
+      // Reset period to default when type changes
+      if (this.chartType === 'day') {
+        this.chartPeriod = '30';
+      } else if (this.chartType === 'month') {
+        this.chartPeriod = '12';
+      } else if (this.chartType === 'year') {
+        this.chartPeriod = '5';
+      }
+      this.fetchChartData();
     }
   },
+
   async created() {
     this.loading = true;
     await Promise.all([
       this.$store.dispatch('fetchOrders'),
       this.$store.dispatch('fetchDashboardStats'),
-      this.$store.dispatch('fetchProducts')
+      this.$store.dispatch('fetchProducts'),
+      this.fetchChartData()
     ]);
     this.loading = false;
   }
@@ -433,7 +652,7 @@ export default {
 
 .status-shipped {
   background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  color: var(--info-color);
 }
 
 .status-delivered {
@@ -533,6 +752,94 @@ export default {
   color: var(--text-secondary);
 }
 
+.charts-section {
+  margin-bottom: 2rem;
+}
+
+.charts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.chart-controls {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.chart-select {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chart-select:hover {
+  border-color: var(--primary-color);
+}
+
+.chart-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 1.5rem;
+}
+
+.chart-card {
+  min-height: 400px;
+}
+
+.chart-container {
+  height: 350px;
+  position: relative;
+}
+
+.chart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 350px;
+  color: var(--text-secondary);
+  gap: 1rem;
+}
+
+.chart-loading .spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 768px) {
   .stats-grid {
     grid-template-columns: 1fr;
@@ -549,6 +856,32 @@ export default {
   .card-header,
   .card-content {
     padding: 1.25rem;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .charts-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .chart-controls {
+    width: 100%;
+  }
+
+  .chart-select {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .chart-container {
+    height: 300px;
+  }
+
+  .chart-loading {
+    height: 300px;
   }
 }
 </style>

@@ -2,13 +2,13 @@
   <div class="price-page">
     <div class="page-header">
       <div class="header-content">
-        <div class="header-info">
+        <!-- <div class="header-info">
           <h1 class="page-title">Product Prices</h1>
           <p class="page-subtitle">Manage product pricing and inventory</p>
-        </div>
+        </div> -->
         <button class="btn btn-primary" @click="openAddModal">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 4V16M10 4L6 8M10 4L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M10 4V16M10 4L6 8M10 4L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
           Add Product
         </button>
@@ -19,27 +19,24 @@
       <div class="table-header">
         <div class="search-box">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 17C13.4183 17 17 13.4183 17 9C17 4.58172 13.4183 1 9 1C4.58172 1 1 4.58172 1 9C1 13.4183 4.58172 17 9 17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M19 19L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path
+              d="M9 17C13.4183 17 17 13.4183 17 9C17 4.58172 13.4183 1 9 1C4.58172 1 1 4.58172 1 9C1 13.4183 4.58172 17 9 17Z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M19 19L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search products..." 
-            class="search-input"
-          />
+          <input type="text" v-model="searchQuery" placeholder="Search products..." class="search-input" />
         </div>
         <div class="table-actions">
           <button class="btn-icon" title="Bulk Edit">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M11 3L15 7L5 17H1V13L11 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M9 5L13 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M11 3L15 7L5 17H1V13L11 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M9 5L13 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </button>
           <button class="btn-icon" title="Export" @click="exportToCSV">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 12V2M10 2L6 6M10 2L14 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M3 12H17V18C17 18.5523 16.5523 19 16 19H4C3.44772 19 3 18.5523 3 18V12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10 12V2M10 2L6 6M10 2L14 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M3 12H17V18C17 18.5523 16.5523 19 16 19H4C3.44772 19 3 18.5523 3 18V12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </button>
         </div>
@@ -54,7 +51,7 @@
                   <span>Product</span>
                   <button class="sort-btn" @click="sortBy('product')">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M5 6L8 3L11 6M5 10L8 13L11 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M5 6L8 3L11 6M5 10L8 13L11 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                   </button>
                 </div>
@@ -69,7 +66,7 @@
                   <span>Price</span>
                   <button class="sort-btn" @click="sortBy('price')">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M5 6L8 3L11 6M5 10L8 13L11 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M5 6L8 3L11 6M5 10L8 13L11 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                   </button>
                 </div>
@@ -84,7 +81,7 @@
                   <span>Stock</span>
                   <button class="sort-btn" @click="sortBy('stock')">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M5 6L8 3L11 6M5 10L8 13L11 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M5 6L8 3L11 6M5 10L8 13L11 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                   </button>
                 </div>
@@ -97,7 +94,9 @@
               <td colspan="6" class="empty-table">
                 <div class="empty-state">
                   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M24 10V38M24 10C22.8954 10 22 10.8954 22 12C22 13.1046 22.8954 14 24 14M24 10C25.1046 10 26 10.8954 26 12C26 13.1046 25.1046 14 24 14M24 28C22.8954 28 22 28.8954 22 30C22 31.1046 22.8954 32 24 32M24 28C25.1046 28 26 28.8954 26 30C26 31.1046 25.1046 32 24 32" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path
+                      d="M24 10V38M24 10C22.8954 10 22 10.8954 22 12C22 13.1046 22.8954 14 24 14M24 10C25.1046 10 26 10.8954 26 12C26 13.1046 25.1046 14 24 14M24 28C22.8954 28 22 28.8954 22 30C22 31.1046 22.8954 32 24 32M24 28C25.1046 28 26 28.8954 26 30C26 31.1046 25.1046 32 24 32"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
                   <p>No products found</p>
                 </div>
@@ -109,7 +108,7 @@
                   <div class="product-icon">
                     <img v-if="product.image" :src="product.image" :alt="product.name" class="product-image" />
                     <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M3 3H17L16 11H4L3 3ZM3 3L2 1M5 15H7M17 15H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M3 3H17L16 11H4L3 3ZM3 3L2 1M5 15H7M17 15H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                   </div>
                   <span>{{ product.name }}</span>
@@ -136,16 +135,10 @@
                 <div class="action-buttons">
                   <button class="btn-action" title="Edit Price" @click="editProduct(product)">
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M11 3L15 7L5 17H1V13L11 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                      <path d="M9 5L13 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M11 3L15 7L5 17H1V13L11 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                      <path d="M9 5L13 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                   </button>
-                  <!-- <button class="btn-action" title="View Details" @click="viewProduct(product)">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M1 9C1 9 4 4 9 4C14 4 17 9 17 9C17 9 14 14 9 14C4 14 1 9 1 9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                      <path d="M9 11C10.1046 11 11 10.1046 11 9C11 7.89543 10.1046 7 9 7C7.89543 7 7 7.89543 7 9C7 10.1046 7.89543 11 9 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  </button> -->
                 </div>
               </td>
             </tr>
@@ -165,13 +158,13 @@
         <div class="pagination">
           <button class="btn-pagination" :disabled="currentPage === 1" @click="currentPage--">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </button>
           <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
           <button class="btn-pagination" :disabled="currentPage === totalPages" @click="currentPage++">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </button>
         </div>
@@ -185,7 +178,7 @@
           <h3 class="modal-title">Add New Product</h3>
           <button class="modal-close" @click="showAddModal = false">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </button>
         </div>
@@ -193,21 +186,12 @@
           <form @submit.prevent="handleAddProduct" class="edit-form">
             <div class="form-group">
               <label class="form-label">Product Name <span class="required">*</span></label>
-              <input 
-                type="text" 
-                v-model="addFormData.name" 
-                class="form-input"
-                required
-                placeholder="Enter product name"
-              />
+              <input type="text" v-model="addFormData.name" class="form-input" required placeholder="Enter product name" />
             </div>
 
             <div class="form-group">
               <label class="form-label">Category</label>
-              <select 
-                v-model="addFormData.category" 
-                class="form-input"
-              >
+              <select v-model="addFormData.category" class="form-input">
                 <option value="">Select a category</option>
                 <option v-for="cat in categories" :key="cat.value" :value="cat.value">
                   {{ cat.label }}
@@ -218,12 +202,7 @@
 
             <div class="form-group">
               <label class="form-label">Product Code (SKU)</label>
-              <input 
-                type="text" 
-                v-model="addFormData.product_code" 
-                class="form-input"
-                placeholder="Leave empty to auto-generate"
-              />
+              <input type="text" v-model="addFormData.product_code" class="form-input" placeholder="Leave empty to auto-generate" />
               <small class="form-hint">If left empty, a unique code will be generated automatically</small>
             </div>
 
@@ -231,38 +210,18 @@
               <label class="form-label">Price <span class="required">*</span></label>
               <div class="input-with-symbol">
                 <span class="input-symbol">$</span>
-                <input 
-                  type="number" 
-                  v-model.number="addFormData.price" 
-                  class="form-input"
-                  step="0.01"
-                  min="0"
-                  required
-                  placeholder="0.00"
-                />
+                <input type="number" v-model.number="addFormData.price" class="form-input" step="0.01" min="0" required placeholder="0.00" />
               </div>
             </div>
 
             <div class="form-group">
               <label class="form-label">Stock Quantity <span class="required">*</span></label>
-              <input 
-                type="number" 
-                v-model.number="addFormData.stock_quantity" 
-                class="form-input"
-                min="0"
-                required
-                placeholder="0"
-              />
+              <input type="number" v-model.number="addFormData.stock_quantity" class="form-input" min="0" required placeholder="0" />
             </div>
 
             <div class="form-group">
               <label class="form-label">Description</label>
-              <textarea 
-                v-model="addFormData.description" 
-                class="form-textarea"
-                rows="3"
-                placeholder="Enter product description"
-              ></textarea>
+              <textarea v-model="addFormData.description" class="form-textarea" rows="3" placeholder="Enter product description"></textarea>
             </div>
 
             <div class="form-group">
@@ -272,31 +231,21 @@
                   <img :src="imagePreview" alt="Preview" class="preview-image" />
                   <button type="button" class="btn-remove-image" @click="removeImage">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                   </button>
                 </div>
-                <div 
-                  v-else-if="!uploadingImage" 
-                  class="upload-area" 
-                  :class="{ 'drag-over': isDragging }"
-                  @dragover.prevent="isDragging = true"
-                  @dragleave.prevent="isDragging = false"
-                  @drop.prevent="handleDrop"
-                >
-                  <input 
-                    type="file" 
-                    ref="fileInput"
-                    @change="handleImageSelect"
-                    accept="image/*"
-                    class="file-input"
-                    id="product-image-upload"
-                  />
+                <div v-else-if="!uploadingImage" class="upload-area" :class="{ 'drag-over': isDragging }"
+                  @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false"
+                  @drop.prevent="handleDrop">
+                  <input type="file" ref="fileInput" @change="handleImageSelect" accept="image/*" class="file-input" id="product-image-upload" />
                   <label for="product-image-upload" class="upload-label">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                      <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                      <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path
+                        d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                      <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                      <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     <span>Click to upload image</span>
                     <small>or drag and drop</small>
@@ -307,14 +256,7 @@
                   <span>Uploading image...</span>
                 </div>
               </div>
-              <input 
-                v-if="!imagePreview && !uploadingImage"
-                type="text" 
-                v-model="addFormData.image" 
-                class="form-input"
-                style="margin-top: 0.5rem;"
-                placeholder="Or enter image URL manually"
-              />
+              <input v-if="!imagePreview && !uploadingImage" type="text" v-model="addFormData.image" class="form-input" style="margin-top: 0.5rem;" placeholder="Or enter image URL manually" />
               <small v-if="imagePreview && addFormData.image" class="form-hint" style="margin-top: 0.5rem; color: var(--success-color);">
                 ✓ Image uploaded successfully
               </small>
@@ -326,10 +268,10 @@
               </button>
               <button type="submit" class="btn btn-primary" :disabled="adding">
                 <svg v-if="adding" class="spinner-icon" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="9" cy="9" r="8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="50.265" stroke-dashoffset="12.566"/>
+                  <circle cx="9" cy="9" r="8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="50.265" stroke-dashoffset="12.566" />
                 </svg>
                 <svg v-else width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 4V14M9 4L5 8M9 4L13 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M9 4V14M9 4L5 8M9 4L13 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
                 {{ adding ? 'Adding...' : 'Add Product' }}
               </button>
@@ -346,43 +288,30 @@
           <h3 class="modal-title">Edit Product</h3>
           <button class="modal-close" @click="showEditModal = false">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </button>
         </div>
         <div class="modal-body">
           <div class="product-info">
             <div class="product-name">{{ productToEdit?.name }}</div>
-            <div class="product-code">SKU: {{ productToEdit?.product_code || productToEdit?.id?.slice(0, 8).toUpperCase() }}</div>
+            <div class="product-code">
+              SKU: {{ productToEdit?.product_code || productToEdit?.id?.slice(0, 8).toUpperCase() }}
+            </div>
           </div>
-          
+
           <form @submit.prevent="handleUpdateProduct" class="edit-form">
             <div class="form-group">
               <label class="form-label">Price <span class="required">*</span></label>
               <div class="input-with-symbol">
                 <span class="input-symbol">$</span>
-                <input 
-                  type="number" 
-                  v-model.number="editFormData.price" 
-                  class="form-input"
-                  step="0.01"
-                  min="0"
-                  required
-                  placeholder="0.00"
-                />
+                <input type="number" v-model.number="editFormData.price" class="form-input" step="0.01" min="0" required placeholder="0.00" />
               </div>
             </div>
 
             <div class="form-group">
               <label class="form-label">Stock Quantity <span class="required">*</span></label>
-              <input 
-                type="number" 
-                v-model.number="editFormData.stock_quantity" 
-                class="form-input"
-                min="0"
-                required
-                placeholder="0"
-              />
+              <input type="number" v-model.number="editFormData.stock_quantity" class="form-input" min="0" required placeholder="0" />
             </div>
 
             <div class="form-actions">
@@ -391,10 +320,10 @@
               </button>
               <button type="submit" class="btn btn-primary" :disabled="editing">
                 <svg v-if="editing" class="spinner-icon" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="9" cy="9" r="8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="50.265" stroke-dashoffset="12.566"/>
+                  <circle cx="9" cy="9" r="8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="50.265" stroke-dashoffset="12.566" />
                 </svg>
                 <svg v-else width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M15 4.5L6.75 12.75L3 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M15 4.5L6.75 12.75L3 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
                 {{ editing ? 'Updating...' : 'Update Product' }}
               </button>
@@ -445,27 +374,29 @@ export default {
       isDragging: false
     }
   },
+
   computed: {
     products() {
       return this.$store.state.products || [];
     },
+
     filteredProducts() {
       let products = this.products;
-      
+
       if (this.searchQuery) {
         const query = this.searchQuery.toLowerCase();
-        products = products.filter(product => 
+        products = products.filter(product =>
           product.name.toLowerCase().includes(query) ||
           (product.product_code && product.product_code.toLowerCase().includes(query)) ||
           (product.description && product.description.toLowerCase().includes(query))
         );
       }
-      
+
       // Apply sorting
       if (this.sortField) {
         products = [...products].sort((a, b) => {
           let aVal, bVal;
-          
+
           switch (this.sortField) {
             case 'product':
               aVal = a.name.toLowerCase();
@@ -483,7 +414,7 @@ export default {
               aVal = a.name.toLowerCase();
               bVal = b.name.toLowerCase();
           }
-          
+
           if (this.sortOrder === 'asc') {
             return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
           } else {
@@ -491,33 +422,40 @@ export default {
           }
         });
       }
-      
+
       return products;
     },
+
     paginatedProducts() {
       const start = (this.currentPage - 1) * this.itemsPerPage;
       const end = start + this.itemsPerPage;
       return this.filteredProducts.slice(start, end);
     },
+
     productsCount() {
       return this.products.length;
     },
+
     totalPages() {
       return Math.ceil(this.filteredProducts.length / this.itemsPerPage) || 1;
     },
+
     paginationStart() {
       if (this.filteredProducts.length === 0) return 0;
       return (this.currentPage - 1) * this.itemsPerPage + 1;
     },
+
     paginationEnd() {
       const end = this.currentPage * this.itemsPerPage;
       return Math.min(end, this.filteredProducts.length);
     }
   },
+
   watch: {
     searchQuery() {
       this.currentPage = 1;
     },
+
     filteredProducts() {
       // Reset to page 1 if current page is out of bounds
       if (this.currentPage > this.totalPages && this.totalPages > 0) {
@@ -525,6 +463,7 @@ export default {
       }
     }
   },
+
   methods: {
     sortBy(field) {
       if (this.sortField === field) {
@@ -539,17 +478,6 @@ export default {
       return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
     },
 
-    getImageUrl(imagePath) {
-      if (!imagePath) return '';
-      // If image path is relative, construct full URL
-      if (imagePath.startsWith('http')) {
-        return imagePath;
-      }
-      // For relative paths, assume they're in the public folder or assets
-      const baseURL = process.env.VUE_APP_FRONTEND_URL || 'http://192.168.0.111:8080';
-      return `${baseURL}/${imagePath}`;
-    },
-
     getCategory(product) {
       // Use stored category if available, otherwise infer from image path
       if (product.category) {
@@ -561,7 +489,7 @@ export default {
         };
         return categoryMap[product.category] || product.category;
       }
-      
+
       // Fallback: Extract category from image path
       if (product.image) {
         if (product.image.includes('electronics')) return 'Electronics';
@@ -590,7 +518,7 @@ export default {
 
     async handleUpdateProduct() {
       if (!this.productToEdit) return;
-      
+
       this.editing = true;
       try {
         const { updatePrice } = await import('../services/api');
@@ -598,7 +526,7 @@ export default {
           price: this.editFormData.price,
           stock_quantity: this.editFormData.stock_quantity
         });
-        
+
         if (response.success) {
           // Refresh products list
           await this.$store.dispatch('fetchPrices');
@@ -770,7 +698,7 @@ export default {
           image: this.addFormData.image || undefined,
           category: this.addFormData.category || undefined
         });
-        
+
         if (response.success) {
           // Refresh products list
           await this.$store.dispatch('fetchPrices');
@@ -801,10 +729,10 @@ export default {
         }
         return stringValue;
       };
-      
+
       // Prepare CSV headers
       const headers = ['Product', 'SKU', 'Price', 'Category', 'Stock'];
-      
+
       // Prepare CSV rows from filtered products
       const rows = this.filteredProducts.map(product => {
         const productName = product.name || '';
@@ -812,7 +740,7 @@ export default {
         const price = product.price ? `$${this.formatCurrency(product.price)}` : '$0.00';
         const category = this.getCategory(product);
         const stock = product.stock_quantity || 0;
-        
+
         return [
           escapeCSV(productName),
           escapeCSV(sku),
@@ -821,34 +749,34 @@ export default {
           escapeCSV(stock)
         ];
       });
-      
+
       // Combine headers and rows
       const csvContent = [
         headers.join(','),
         ...rows.map(row => row.join(','))
       ].join('\n');
-      
+
       // Add BOM for UTF-8 to support Excel
       const BOM = '\uFEFF';
       const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-      
+
       // Create download link
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      
+
       // Generate filename with current date
       const now = new Date();
       const dateStr = now.toISOString().split('T')[0];
       const filename = `products_export_${dateStr}.csv`;
       link.setAttribute('download', filename);
-      
+
       // Trigger download
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Clean up
       URL.revokeObjectURL(url);
     }
@@ -873,7 +801,7 @@ export default {
 .header-content {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: end;
   flex-wrap: wrap;
   gap: 1rem;
 }
@@ -1585,7 +1513,9 @@ export default {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 768px) {
@@ -1593,20 +1523,20 @@ export default {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .search-box {
     min-width: 100%;
   }
-  
+
   .data-table {
     font-size: 0.75rem;
   }
-  
+
   .data-table th,
   .data-table td {
     padding: 0.75rem 1rem;
   }
-  
+
   .table-footer {
     flex-direction: column;
     align-items: stretch;

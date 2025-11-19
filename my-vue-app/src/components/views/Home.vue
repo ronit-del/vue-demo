@@ -163,6 +163,7 @@
                 }
                 return [...this.products];
             },
+
             displayedProducts() {
                 return this.allProducts.slice(0, this.productsToShow);
             }
@@ -187,6 +188,7 @@
                     this.loading = false;
                 }
             },
+
             getProductCategory(product) {
                 // Determine category based on image path
                 if (product.image && product.image.includes('electronics')) {
@@ -200,6 +202,7 @@
                 }
                 return null;
             },
+
             filterByCategory(categoryId) {
                 if (this.selectedCategory === categoryId) {
                     // If clicking the same category, deselect it
@@ -210,12 +213,14 @@
                 // Reset products to show
                 this.productsToShow = 6;
             },
+
             getCategoryCount(categoryId) {
                 return this.products.filter(product => {
                     const category = this.getProductCategory(product);
                     return category === categoryId;
                 }).length;
             },
+
             async getProductRatingData(product_id) {
                 const user = JSON.parse(localStorage.getItem('user'));
                 const data = { user_id: user?.id || null, product_id };

@@ -31,10 +31,6 @@ const sendEmail = async ({ to, subject, text, html, attachments }) => {
             htmlContent: html,
         };
 
-        console.log('payload', payload.sender);
-        console.log('payload.to', payload.to);
-        console.log('payload.subject', payload.subject);
-
         const response = await fetch("https://api.brevo.com/v3/smtp/email", {
             method: "POST",
             headers: {
@@ -43,8 +39,6 @@ const sendEmail = async ({ to, subject, text, html, attachments }) => {
             },
             body: JSON.stringify(payload),
         });
-
-        console.log('response', response);
 
         if (!response.ok) {
             const errorBody = await response.text();

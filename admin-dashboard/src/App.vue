@@ -41,11 +41,16 @@
         <!-- Header -->
         <header class="header">
           <div class="header-left">
-            <h1 class="page-title">{{ currentPageTitle }}</h1>
+            <h1 class="page-title">
+              {{ currentPageTitle }}
+            </h1>
+            <p v-if="currentPageDescription" class="page-description">
+              {{ currentPageDescription }}
+            </p>
           </div>
           <div class="header-right">
             <div class="notification-wrapper">
-              <button class="header-btn" aria-label="Notifications" ref="notificationButton"
+              <button class="header-btn" aria-label="Notifications" ref="notificationButton" title="Notifications"
                 @click="toggleNotifications">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path
@@ -139,6 +144,7 @@ export default {
       ],
     };
   },
+
   computed: {
     isAuthenticated() {
       return this.$store.state.auth.isAuthenticated;
@@ -146,8 +152,88 @@ export default {
 
     currentPageTitle() {
       const route = this.$route;
+
+      if (route.name === 'OrderEdit') {
+        return 'Edit Order';
+      }
+      if (route.name === 'OrderDetails') {
+        return 'Order Details';
+      }
+      if (route.name === 'CustomerEdit') {
+        return 'Edit Customer';
+      }
+      
       const menuItem = this.menuItems.find((item) => item.path === route.path);
       return menuItem ? menuItem.label : "Dashboard";
+    },
+
+    currentPageDescription() {
+      const route = this.$route;
+      
+      if (route.name === 'OrderEdit') {
+        const order = this.currentOrder;
+        if (order) {
+          if (order.order_number) {
+            return `Order: ${order.order_number}`;
+          }
+          if (order.id) {
+            return `Order: ${order.id}`;
+          }
+        }
+        return 'Order: Loading...';
+      }
+      if (route.name === 'OrderDetails') {
+        return 'View complete order information';
+      }
+      if (route.name === 'CustomerEdit') {
+        const customer = this.currentCustomer;
+        if (customer && customer.name) {
+          return `Customer: ${customer.name}`;
+        }
+        return 'Customer: Loading...';
+      }
+      
+      const routePath = route.path;
+      if (routePath === '/') {
+        return 'Overview of your business metrics and recent activity';
+      }
+      if (routePath === '/orders' || routePath.startsWith('/orders/')) {
+        return 'Manage and track all orders';
+      }
+      if (routePath === '/customers' || routePath.startsWith('/customers/')) {
+        return 'Manage your customer database';
+      }
+      if (routePath === '/prices') {
+        return 'Manage product pricing and inventory';
+      }
+      
+      return null;
+    },
+
+    currentOrder() {
+      const route = this.$route;
+      if (route.name === 'OrderEdit' || route.name === 'OrderDetails') {
+        const orderId = route.params.id;
+        if (orderId) {
+          return this.$store.state.orders.find(order => 
+            order.id === parseInt(orderId) || order.id === orderId
+          );
+        }
+      }
+      return null;
+    },
+
+    currentCustomer() {
+      const route = this.$route;
+      if (route.name === 'CustomerEdit') {
+        const customerId = route.params.id;
+        if (customerId) {
+          return this.$store.state.customers.find(customer => 
+            customer.id === parseInt(customerId) || customer.id === customerId
+          );
+        }
+      }
+      return null;
     },
 
     user() {
@@ -166,6 +252,7 @@ export default {
       return this.notifications.filter((n) => !n.is_read);
     },
   },
+
   methods: {
     toggleSidebar() {
       this.sidebarCollapsed = !this.sidebarCollapsed;
@@ -183,6 +270,7 @@ export default {
       this.showNotificationDropdown = !this.showNotificationDropdown;
       if (this.showNotificationDropdown) {
         this.$store.dispatch("fetchNotifications");
+        this.$store.dispatch("fetchNotificationCount");
       }
     },
 
@@ -219,12 +307,17 @@ export default {
     },
 
     startNotificationPolling() {
-      // Poll every 30 seconds for new notifications
+      // Poll every 5 seconds for new notifications to get real-time updates
       this.notificationPollInterval = setInterval(() => {
         if (this.isAuthenticated) {
+          // Fetch both count and notifications to keep everything in sync
           this.$store.dispatch("fetchNotificationCount");
+          // Only fetch full notifications if dropdown is open to avoid unnecessary requests
+          if (this.showNotificationDropdown) {
+            this.$store.dispatch("fetchNotifications");
+          }
         }
-      }, 30000);
+      }, 5000); // Poll every 5 seconds instead of 30
     },
   },
 
@@ -264,6 +357,19 @@ export default {
         }
       }
     },
+    '$route'(to, from) {
+      // Fetch orders/customers when navigating to edit pages if not already loaded
+      if (to.name === 'OrderEdit' || to.name === 'OrderDetails') {
+        if (this.$store.state.orders.length === 0) {
+          this.$store.dispatch('fetchOrders');
+        }
+      }
+      if (to.name === 'CustomerEdit') {
+        if (this.$store.state.customers.length === 0) {
+          this.$store.dispatch('fetchCustomers');
+        }
+      }
+    },
   },
 };
 </script>
@@ -297,6 +403,26 @@ export default {
     0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --sidebar-width: 260px;
   --sidebar-collapsed-width: 80px;
+}
+
+.dflex {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-back {
+  width: 200px;
+  height: 40px;
+  border: 1px solid var(--border-color);
+  background: var(--primary-color);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--bg-primary);
+  transition: all 0.2s ease;
 }
 
 body {
@@ -476,7 +602,7 @@ body {
 /* Header */
 .header {
   background: var(--bg-primary);
-  padding: 1.5rem 2rem;
+  padding: 1rem 2rem 1rem 1rem !important;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
@@ -495,6 +621,13 @@ body {
   font-size: 1.75rem;
   font-weight: 700;
   color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.page-description {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0;
 }
 
 .header-right {
@@ -594,7 +727,7 @@ body {
 }
 
 .notification-list {
-  max-height: 400px;
+  height: 250px;
   overflow-y: auto;
 }
 

@@ -5,6 +5,7 @@ const db = require("../config/db");
 const pool = db.getPool();
 const { statusCode } = require("../common");
 const { createNotification } = require("./notifications");
+const { sendOrderStatusUpdateEmail } = require("../services/orderEmailService");
 
 // Get all orders with user details and order items
 router.get("/", async (req, res) => {
@@ -96,6 +97,7 @@ router.get("/:id", async (req, res) => {
                 o.total_amount as total,
                 o.payment_type,
                 o.status,
+                o.cancellation_reason,
                 o.created_at as date,
                 o.updated_at,
                 u.name as customer,
@@ -149,6 +151,7 @@ router.get("/:id", async (req, res) => {
             customer_postal_code: order.customer_postal_code,
             status: order.status,
             payment_type: order.payment_type,
+            cancellation_reason: order.cancellation_reason,
             total: parseFloat(order.total) || 0,
             date: order.date,
             updated_at: order.updated_at,
@@ -187,7 +190,7 @@ router.get("/:id", async (req, res) => {
 router.put("/:id/status", async (req, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { status, cancellation_reason } = req.body;
 
         if (!status) {
             return res.status(statusCode.BAD_REQUEST.code).json({
@@ -220,15 +223,53 @@ router.put("/:id/status", async (req, res) => {
         const oldStatus = orderBeforeUpdate.rows[0].status;
         const orderNumber = orderBeforeUpdate.rows[0].order_number;
 
-        const result = await pool.query(
-            `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
-            [status, id]
-        );
+        // Build update query with optional cancellation_reason
+        let updateQuery;
+        let updateValues;
+        
+        if (status === 'Cancelled' && cancellation_reason) {
+            updateQuery = `UPDATE orders SET status = $1, cancellation_reason = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
+            updateValues = [status, cancellation_reason, id];
+        } else {
+            updateQuery = `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`;
+            updateValues = [status, id];
+        }
+
+        const result = await pool.query(updateQuery, updateValues);
 
         if (result.rows.length === 0) {
             return res.status(statusCode.BAD_REQUEST.code).json({
                 success: false,
                 message: "Order not found"
+            });
+        }
+
+        // Get user email for status update email
+        const userResult = await pool.query(`
+            SELECT u.email, u.name FROM users u
+            JOIN orders o ON o.user_id = u.id
+            WHERE o.id = $1
+        `, [id]);
+
+        // Get cancellation reason if status is Cancelled
+        const cancellationReasonResult = await pool.query(
+            `SELECT cancellation_reason FROM orders WHERE id = $1`,
+            [id]
+        );
+        const cancellationReason = (status === 'Cancelled' && cancellationReasonResult.rows[0]?.cancellation_reason) 
+            ? cancellationReasonResult.rows[0].cancellation_reason 
+            : null;
+
+        // Send status update email (async, non-blocking)
+        if (userResult.rows.length > 0 && oldStatus !== status) {
+            sendOrderStatusUpdateEmail(
+                id,
+                orderNumber,
+                status,
+                userResult.rows[0].email,
+                cancellationReason
+            ).catch(emailError => {
+                console.error('Failed to send status update email (non-blocking):', emailError);
             });
         }
 
@@ -257,7 +298,7 @@ router.put("/:id/status", async (req, res) => {
 router.put("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const { status, payment_type, order_items } = req.body;
+        const { status, payment_type, order_items, cancellation_reason } = req.body;
 
         // Check if order exists
         const orderCheck = await pool.query(
@@ -307,6 +348,11 @@ router.put("/:id", async (req, res) => {
             updateValues.push(payment_type);
         }
 
+        if (cancellation_reason !== undefined) {
+            updateFields.push(`cancellation_reason = $${paramIndex++}`);
+            updateValues.push(cancellation_reason);
+        }
+
         if (updateFields.length > 0) {
             updateFields.push(`updated_at = NOW()`);
             const whereParamIndex = paramIndex;
@@ -314,6 +360,29 @@ router.put("/:id", async (req, res) => {
 
             const updateQuery = `UPDATE orders SET ${updateFields.join(', ')} WHERE id = $${whereParamIndex}`;
             await pool.query(updateQuery, updateValues);
+
+            // Send status update email if status changed
+            if (status !== undefined && oldStatus !== status && orderNumber) {
+                const userResult = await pool.query(`
+                    SELECT u.email FROM users u
+                    JOIN orders o ON o.user_id = u.id
+                    WHERE o.id = $1
+                `, [id]);
+
+                if (userResult.rows.length > 0) {
+                    // Get cancellation reason if status is Cancelled
+                    const cancellationReason = (status === 'Cancelled' && cancellation_reason) ? cancellation_reason : null;
+                    sendOrderStatusUpdateEmail(
+                        id,
+                        orderNumber,
+                        status,
+                        userResult.rows[0].email,
+                        cancellationReason
+                    ).catch(emailError => {
+                        console.error('Failed to send status update email (non-blocking):', emailError);
+                    });
+                }
+            }
 
             // Create notification if status changed to Processing
             if (status !== undefined && status === 'Processing' && oldStatus !== 'Processing' && orderNumber) {
@@ -375,9 +444,7 @@ router.put("/:id", async (req, res) => {
             const newOrderTotal = parseFloat(orderTotalResult.rows[0].total);
 
             await pool.query(
-                `UPDATE orders 
-                 SET total_amount = $1, updated_at = NOW()
-                 WHERE id = $2`,
+                `UPDATE orders SET total_amount = $1, updated_at = NOW() WHERE id = $2`,
                 [newOrderTotal, id]
             );
         }
@@ -461,7 +528,7 @@ router.get("/status/:status", async (req, res) => {
     try {
         const { status } = req.params;
         const validStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'];
-        
+
         if (!validStatuses.includes(status)) {
             return res.status(statusCode.BAD_REQUEST.code).json({
                 success: false,
@@ -507,8 +574,8 @@ router.get("/status/:status", async (req, res) => {
             LEFT JOIN products p ON p.id = od.product_id
             WHERE o.status = $1
             GROUP BY o.id, o.order_number, o.user_id, o.total_amount, o.payment_type, 
-                     o.status, o.created_at, o.updated_at, u.name, u.email, u.phone, 
-                     u.address, u.country, u.postal_code
+                o.status, o.created_at, o.updated_at, u.name, u.email, u.phone, 
+                u.address, u.country, u.postal_code
             ORDER BY o.created_at DESC
         `, [status]);
 

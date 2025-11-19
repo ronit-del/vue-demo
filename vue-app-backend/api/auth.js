@@ -179,7 +179,7 @@ router.post("/register", async (req, res) => {
                             If you didn’t create an account, you can safely ignore this email.
                         </p>
                         <p>
-                            Thanks,<br>The Vue App Team
+                            Thanks,<br>The SmartShop Team
                         </p>
                     </div>
                 </body>
@@ -437,7 +437,7 @@ router.post("/forgot-password", async (req, res) => {
                                 <a href="${resetUrl}" target="_blank">Reset Password</a>
                             </p>
                             <p>If you did not request this, you can safely ignore this email</p>
-                            <p>Thanks,<br>The Vue App Team</p>
+                            <p>Thanks,<br>The SmartShop Team</p>
                         </div>
                     </body>
                 </html>
@@ -692,7 +692,7 @@ router.post("/order", async (req, res) => {
 
         // If no pending order found, generate a new order_number
         if (!orderNumber) {
-            orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+            orderNumber = `ORD-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
         }
 
         // Check if this product already exists in order_details for pending orders
@@ -757,25 +757,21 @@ router.post("/order", async (req, res) => {
             // Create new order_detail entry with order_number and order_id
             result = await pool.query(
                 `INSERT INTO order_details (order_id, order_number, user_id, product_id, base_price, quantity, total_amount, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-                 RETURNING id, base_price, quantity, total_amount, order_number`,
+                VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+                RETURNING id, base_price, quantity, total_amount, order_number`,
                 [orderId, orderNumber, user_id, product_id, base_price, item_quantity, total_amount]
             );
 
             // Recalculate and update the order total_amount (sum of all order_details for this order)
             const orderTotalResult = await pool.query(
-                `SELECT COALESCE(SUM(od.total_amount), 0) as total
-                 FROM order_details od
-                 WHERE od.order_id = $1`,
+                `SELECT COALESCE(SUM(od.total_amount), 0) as total FROM order_details od WHERE od.order_id = $1`,
                 [orderId]
             );
 
             const newOrderTotal = parseFloat(orderTotalResult.rows[0].total);
 
             await pool.query(
-                `UPDATE orders 
-                 SET total_amount = $1, updated_at = NOW()
-                 WHERE id = $2`,
+                `UPDATE orders SET total_amount = $1, updated_at = NOW() WHERE id = $2`,
                 [newOrderTotal, orderId]
             );
         }
@@ -798,7 +794,7 @@ router.post("/order", async (req, res) => {
             return res.status(statusCode.BAD_REQUEST.code).json({
                 success: false,
                 message: 'Something went wrong!!',
-            });
+            });  
         }
     } catch (error) {
         console.error("Order error:", error);
@@ -955,18 +951,14 @@ router.post("/delete-order", async (req, res) => {
             } else if (orderId) {
                 // Recalculate order total from remaining order_details
                 const orderTotalResult = await pool.query(
-                    `SELECT COALESCE(SUM(od.total_amount), 0) as total
-                     FROM order_details od
-                     WHERE od.order_id = $1`,
+                    `SELECT COALESCE(SUM(od.total_amount), 0) as total FROM order_details od WHERE od.order_id = $1`,
                     [orderId]
                 );
 
                 const newOrderTotal = parseFloat(orderTotalResult.rows[0].total);
 
                 await pool.query(
-                    `UPDATE orders 
-                     SET total_amount = $1, updated_at = NOW()
-                     WHERE id = $2`,
+                    `UPDATE orders SET total_amount = $1, updated_at = NOW() WHERE id = $2`,
                     [newOrderTotal, orderId]
                 );
             }
@@ -1033,8 +1025,7 @@ router.post("/add-product-rating", async (req, res) => {
 
         const ratingReview = await pool.query(
             `INSERT INTO product_ratings (user_id, product_id, rating, review, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, NOW(), NOW())
-            RETURNING product_id`,
+            ) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING product_id`,
             [user_id, product_id, rating, review]
         );
 
@@ -1064,6 +1055,10 @@ router.post('/create-stripe-session', async (req, res) => {
     const { cart, userDetail, orderId, orderNumber, payment_method } = req.body;
     const cartId = cart.map((c) => c.id);
 
+    // Import email service and notification functions
+    const { sendOrderConfirmationEmail, sendAdminOrderNotification } = require('../services/orderEmailService');
+    const { createNotification } = require('./notifications');
+
     try {
         // Handle COD payment method - no Stripe processing needed
         if (payment_method === 'cod') {
@@ -1071,6 +1066,32 @@ router.post('/create-stripe-session', async (req, res) => {
                 UPDATE orders SET status = 'Processing', payment_type = 'COD'
                 WHERE user_id = $1 AND status = 'Pending' AND id = $2
             `, [userDetail.user_id, orderId]);
+
+            // Send order confirmation email to customer
+            try {
+                await sendOrderConfirmationEmail(
+                    orderId,
+                    orderNumber,
+                    userDetail.email,
+                    userDetail.name
+                );
+            } catch (emailError) {
+                console.error('Failed to send order confirmation email (non-blocking):', emailError);
+            }
+
+            // Send admin notification email (async, non-blocking)
+            try {
+                await sendAdminOrderNotification(orderId, orderNumber);
+            } catch (adminEmailError) {
+                console.error('Failed to send admin notification email (non-blocking):', adminEmailError);
+            }
+
+            // Create database notification for admin
+            try {
+                await createNotification(orderId, orderNumber, `New order ${orderNumber} placed via COD`, 'order_placed');
+            } catch (notificationError) {
+                console.error('Failed to create admin notification (non-blocking):', notificationError);
+            }
 
             return res.status(200).json({
                 status: true,
@@ -1097,9 +1118,39 @@ router.post('/create-stripe-session', async (req, res) => {
                 WHERE user_id = $1 AND status = 'Pending' AND order_number = $2
             `, [userDetail.user_id, orderNumber]);
 
+            // Get order ID for email and notifications
+            const orderResult = await pool.query(`
+                SELECT id FROM orders WHERE order_number = $1 AND user_id = $2
+            `, [orderNumber, userDetail.user_id]);
+
+            // Send order confirmation email to customer (async, non-blocking)
+            if (orderResult.rows.length > 0) {
+                const finalOrderId = orderResult.rows[0].id;
+                
+                sendOrderConfirmationEmail(
+                    finalOrderId, orderNumber, userDetail.email, userDetail.name
+                ).catch(emailError => {
+                    console.error('Failed to send order confirmation email (non-blocking):', emailError);
+                });
+
+                // Send admin notification email (async, non-blocking)
+                sendAdminOrderNotification(
+                    finalOrderId, orderNumber
+                ).catch(adminEmailError => {
+                    console.error('Failed to send admin notification email (non-blocking):', adminEmailError);
+                });
+
+                // Create database notification for admin (async, non-blocking)
+                createNotification(
+                    finalOrderId, orderNumber, `New order ${orderNumber} placed via Stripe`, 'order_placed'
+                ).catch(notificationError => {
+                    console.error('Failed to create admin notification (non-blocking):', notificationError);
+                });
+            }
+
             return res.status(200).json({
                 status: true,
-                clientSecret: paymentIntent.client_secret, // Send the client secret to the frontend
+                clientSecret: paymentIntent.client_secret,
             });
         } else {
             return res.status(200).json({

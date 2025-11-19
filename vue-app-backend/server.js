@@ -12,7 +12,6 @@ const server = http.createServer(app);
 const db = require('./config/db')
 const rateLimit = require('express-rate-limit');
 const pgSession = require('connect-pg-simple')(session);
-const { requireAuth } = require("./config/middleware");
 
 const io = new Server(server, {
     cors: {
@@ -24,13 +23,12 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-    console.log('A user connected');
+    console.log(`User connected :: ${socket}`);
     socket.on('disconnect', () => {
         console.log('User disconnected');
     });
 });
 
-// Database connection status
 let dbConnected = false;
 let dbResult = null;
 
@@ -48,16 +46,12 @@ async function initializeDatabase() {
     return result;
 }
 
-// Initialize database FIRST before setting up server
 async function startServer() {
     console.log('🔍 Checking database connection...');
 
-    // Try to connect to database first
     await initializeDatabase();
 
-    // Now proceed with server setup based on ACTUAL database state
     console.log(`💾 Database Status: ${dbConnected ? '✅ Connected' : '❌ Idle Mode'}`);
-
 
     app.use((req, res, next) => {
         res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
@@ -70,13 +64,12 @@ async function startServer() {
         next();
     });
 
-    // CORS configuration for frontend applications
     app.use(cors({
         origin: process.env.NODE_ENV === 'production'
             ? ['https://app.vueApp.com'] 
             : [
-                'http://192.168.0.111:8080',  // my-vue-app
-                'http://192.168.0.111:8081',  // admin-dashboard
+                'http://192.168.0.111:8080',
+                'http://192.168.0.111:8081',
                 'http://localhost:8080',
                 'http://localhost:8081'
             ],
@@ -89,18 +82,15 @@ async function startServer() {
 
     app.use(bodyParser.json({ limit: "50mb" }));
 
-    // Rate limiting
     const limiter = rateLimit({
         windowMs: 15 * 60 * 1000,
         max: 10000,
     });
     app.use(limiter);
 
-    // Body parsing middleware
     app.use(express.json({ limit: '50mb' }));
     app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-    // Set timeout for requests to prevent hanging
     app.use((req, res, next) => {
         req.setTimeout(300000);
         res.setTimeout(300000);
@@ -118,7 +108,6 @@ async function startServer() {
         },
     };
 
-    // Only use PostgreSQL session store if database is connected
     if (dbConnected && db.isConnected()) {
         sessionConfig.store = new pgSession({
             pool: db.getPool(),
@@ -131,7 +120,6 @@ async function startServer() {
 
     app.use(session(sessionConfig));
 
-    // Static files with proper MIME type configuration
     app.use(express.static('public', {
         setHeaders: (res, path, stat) => {
             if (path.endsWith('.svg')) {
@@ -140,7 +128,6 @@ async function startServer() {
         }
     }));
 
-    // Middleware to check database connection for API routes
     app.use('/api', (req, res, next) => {
         if (!dbConnected) {
             return res.status(503).json({
@@ -152,7 +139,6 @@ async function startServer() {
         next();
     });
 
-    // API Routes - Always mount auth routes (they handle DB checks internally)
     try {
         app.use('/api/auth', require('./api/auth'));
         app.use('/api/dashboard', require('./api/dashboard'));
@@ -162,35 +148,33 @@ async function startServer() {
         app.use('/api/products', require('./api/products'));
         app.use('/api/upload', require('./api/upload'));
         app.use('/api/notifications', require('./api/notifications'));
+        app.use('/api/tracking', require('./api/tracking'));
 
         console.log('✅ API routes loaded successfully');
     } catch (error) {
         console.log('⚠️  Error loading API routes:', error);
     }
 
-
-    // Error handling middleware
     app.use((err, req, res, next) => {
         console.error(err);
         res.status(500).json({ error: 'Something went wrong!!!!' });
     });
 
-    // 404 handler
     app.use((req, res) => {
         res.status(404).json({ error: 'Route not found' });
     });
 
     const PORT = process.env.PORT || 3000;
-    const HOST = process.env.HOST || '0.0.0.0'; // Bind to all network interfaces
+    const HOST = process.env.HOST || '0.0.0.0';
 
     server.listen(PORT, HOST, () => {
-        console.log('🚀 ===== Vue App Server Started =====');
+        console.log('======== Vue App Server Started ==========');
         console.log(`🔥 Server running on ${HOST}:${PORT}`);
-        console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
         console.log(`📁 Static files served from public/`);
         console.log(`🔌 Socket.io ready for real-time updates`);
         console.log(`💾 Database: ${dbConnected ? '✅ Connected' : '❌ Idle Mode'}`);
-        console.log('========================================');
+        console.log('==========================================');
 
         if (!dbConnected) {
             console.log('');
@@ -204,7 +188,6 @@ async function startServer() {
     });
 }
 
-// Start the server
 startServer().catch(error => {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

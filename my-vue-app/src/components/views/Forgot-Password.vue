@@ -24,6 +24,7 @@
             ErrorComponent,
             SuccessComponent
         },
+
         data() {
             return {
                 email: '',
@@ -31,6 +32,7 @@
                 success: '',
             };
         },
+
         methods: {
             handleForgotPassword() {
                 console.log(this.email);

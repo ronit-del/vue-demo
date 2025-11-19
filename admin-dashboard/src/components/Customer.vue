@@ -1,40 +1,36 @@
 <template>
   <div class="customer-page">
-    <div class="page-header">
-      <div class="header-content">
-        <div class="header-info">
-          <h1 class="page-title">Customers</h1>
-          <p class="page-subtitle">Manage your customer database</p>
-        </div>
-        <!-- <button class="btn btn-primary" @click="showAddModal = true">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Add Customer
-        </button> -->
+
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-label">Total Customers</span>
+        <span class="stat-value stat-value-primary">{{ totalCustomersCount }}</span>
       </div>
     </div>
 
     <div class="content-card">
+      <div class="tabs-container">
+        <div class="tabs">
+          <button class="tab-button" :class="{ active: activeTab === 'active' }" @click="activeTab = 'active'">
+            Active Customers
+            <span class="tab-badge">{{ activeCustomersCount }}</span>
+          </button>
+          <button class="tab-button" :class="{ active: activeTab === 'inactive' }" @click="activeTab = 'inactive'">
+            Inactive Customers
+            <span class="tab-badge">{{ inactiveCustomersCount }}</span>
+          </button>
+        </div>
+      </div>
+
       <div class="table-header">
         <div class="search-box">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M9 17C13.4183 17 17 13.4183 17 9C17 4.58172 13.4183 1 9 1C4.58172 1 1 4.58172 1 9C1 13.4183 4.58172 17 9 17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M19 19L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search customers..." 
-            class="search-input"
-          />
+          <input type="text" class="search-input" v-model="searchQuery" placeholder="Search customers..." />
         </div>
         <div class="table-actions">
-          <button class="btn-icon" title="Filter">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 5H17M5 10H15M7 15H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
           <button class="btn-icon" title="Export" @click="exportToCSV">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M10 12V2M10 2L6 6M10 2L14 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -48,16 +44,6 @@
         <table class="data-table">
           <thead>
             <tr>
-              <!-- <th>
-                <div class="table-header-cell">
-                  <span>Customer ID</span>
-                  <button class="sort-btn" @click="sortBy('id')">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M5 6L8 3L11 6M5 10L8 13L11 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  </button>
-                </div>
-              </th> -->
               <th>
                 <div class="table-header-cell">
                   <span>Name</span>
@@ -99,9 +85,6 @@
               </td>
             </tr>
             <tr v-for="customer in paginatedCustomers" :key="customer.id" class="table-row">
-              <!-- <td>
-                <span class="cell-id">#{{ customer.id }}</span>
-              </td> -->
               <td>
                 <div class="cell-name">
                   <div class="avatar">
@@ -212,6 +195,7 @@ export default {
       adding: false,
       addError: null,
       countries: COUNTRIES,
+      activeTab: 'active',
       newCustomer: {
         name: '',
         email: '',
@@ -223,20 +207,52 @@ export default {
       }
     }
   },
+
   computed: {
     customers() {
-      return this.$store.state.customers.length > 0 
-        ? this.$store.state.customers 
-        : [
-            { id: 1, name: 'John Doe', email: 'john.doe@example.com' },
-            { id: 2, name: 'Jane Smith', email: 'jane.smith@example.com' },
-            { id: 3, name: 'Bob Johnson', email: 'bob.johnson@example.com' },
-            { id: 4, name: 'Alice Williams', email: 'alice.williams@example.com' },
-            { id: 5, name: 'Charlie Brown', email: 'charlie.brown@example.com' }
-          ];
+      return this.$store.state.customers;
     },
+
+    activeCustomersCount() {
+      return this.customers.filter(c => {
+        const status = c.status || (c.is_active !== undefined ? (c.is_active ? 'active' : 'inactive') : 'active');
+        return status === 'active';
+      }).length;
+    },
+
+    inactiveCustomersCount() {
+      return this.customers.filter(c => {
+        const status = c.status || (c.is_active !== undefined ? (c.is_active ? 'active' : 'inactive') : 'active');
+        return status !== 'active';
+      }).length;
+    },
+
+    totalCustomersCount() {
+      return this.customers.length;
+    },
+
+    currentTabCustomersCount() {
+      if (this.activeTab === 'inactive') {
+        return this.inactiveCustomersCount;
+      }
+      return this.activeCustomersCount;
+    },
+
     filteredCustomers() {
       let filtered = this.customers;
+      
+      // Filter by active tab
+      if (this.activeTab === 'active') {
+        filtered = filtered.filter(customer => {
+          const status = customer.status || (customer.is_active !== undefined ? (customer.is_active ? 'active' : 'inactive') : 'active');
+          return status === 'active';
+        });
+      } else if (this.activeTab === 'inactive') {
+        filtered = filtered.filter(customer => {
+          const status = customer.status || (customer.is_active !== undefined ? (customer.is_active ? 'active' : 'inactive') : 'active');
+          return status !== 'active';
+        });
+      }
       
       if (this.searchQuery) {
         const query = this.searchQuery.toLowerCase();
@@ -275,37 +291,47 @@ export default {
           return 0;
         });
       }
-      
+
       return filtered;
     },
+
     totalPages() {
       return Math.ceil(this.filteredCustomers.length / this.itemsPerPage) || 1;
     },
+
     paginatedCustomers() {
       const start = (this.currentPage - 1) * this.itemsPerPage;
       const end = start + this.itemsPerPage;
       return this.filteredCustomers.slice(start, end);
     },
+
     paginationStart() {
       if (this.filteredCustomers.length === 0) return 0;
       return (this.currentPage - 1) * this.itemsPerPage + 1;
     },
+
     paginationEnd() {
       const end = this.currentPage * this.itemsPerPage;
       return Math.min(end, this.filteredCustomers.length);
     }
   },
+
   watch: {
     searchQuery() {
       this.currentPage = 1;
     },
+
+    activeTab() {
+      this.currentPage = 1;
+    },
+
     filteredCustomers() {
-      // Reset to page 1 if current page is out of bounds
       if (this.currentPage > this.totalPages && this.totalPages > 0) {
         this.currentPage = 1;
       }
     }
   },
+
   methods: {
     sortBy(field) {
       if (this.sortField === field) {
@@ -315,21 +341,26 @@ export default {
         this.sortOrder = 'asc';
       }
     },
+
     getInitials(name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     },
+
     getStatusClass(customer) {
       const status = customer.status || (customer.is_active !== undefined ? (customer.is_active ? 'active' : 'inactive') : 'active');
       return status === 'active' ? 'status-active' : 'status-inactive';
     },
+
     getStatusText(customer) {
       const status = customer.status || (customer.is_active !== undefined ? (customer.is_active ? 'active' : 'inactive') : 'active');
       return status === 'active' ? 'Active' : 'Inactive';
     },
+
     confirmDelete(customer) {
       this.customerToDelete = customer;
       this.showDeleteModal = true;
     },
+
     async deleteCustomer() {
       if (!this.customerToDelete) return;
       
@@ -354,6 +385,7 @@ export default {
         this.deleting = false;
       }
     },
+
     async handleAddCustomer() {
       this.adding = true;
       this.addError = null;
@@ -377,6 +409,7 @@ export default {
         this.adding = false;
       }
     },
+
     closeAddModal() {
       this.addError = null;
       this.newCustomer = {
@@ -389,6 +422,7 @@ export default {
         status: 'active'
       };
     },
+
     exportToCSV() {
       // Escape commas and quotes in CSV values
       const escapeCSV = (value) => {
@@ -447,6 +481,7 @@ export default {
       URL.revokeObjectURL(url);
     }
   },
+
   created() {
     this.$store.dispatch('fetchCustomers');
   }
@@ -511,12 +546,108 @@ export default {
   box-shadow: var(--shadow-md);
 }
 
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-item {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-value-primary {
+  color: var(--primary-color);
+}
+
 .content-card {
   background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: var(--shadow-md);
   border: 1px solid var(--border-color);
   overflow: hidden;
+}
+
+.tabs-container {
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 1.5rem;
+  background: var(--bg-secondary);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tab-button {
+  position: relative;
+  padding: 1rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: -1px;
+}
+
+.tab-button:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.tab-button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  background: transparent;
+}
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.tab-button.active .tab-badge {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary-color);
 }
 
 .table-header {
@@ -805,6 +936,24 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .stats-bar {
+    grid-template-columns: 1fr;
+  }
+  
+  .tabs-container {
+    padding: 0 1rem;
+    overflow-x: auto;
+  }
+  
+  .tabs {
+    min-width: max-content;
+  }
+  
+  .tab-button {
+    padding: 0.875rem 1rem;
+    font-size: 0.8125rem;
+  }
+  
   .table-header {
     flex-direction: column;
     align-items: stretch;

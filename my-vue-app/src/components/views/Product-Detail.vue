@@ -270,11 +270,13 @@
                 orderNumber: null // Store the current order number for the cart
             };
         },
+
         computed: {
             displayedReviews() {
                 if (!this.ratings || this.ratings.length === 0) return [];
                 return this.showAllReviews ? this.ratings : this.ratings.slice(0, 3);
             },
+
             hasOrderItem() {
                 if (!this.order || !Array.isArray(this.order) || this.order.length === 0 || !this.product || !this.product.id) {
                     return false;
@@ -286,6 +288,7 @@
                 );
             }
         },
+
         methods: {
             formatDate(date) {
                 if (!date) return '';
@@ -295,6 +298,7 @@
                     day: 'numeric' 
                 });
             },
+
             getRatingText(rating) {
                 const texts = {
                     1: 'Poor',
@@ -305,9 +309,11 @@
                 };
                 return texts[rating] || '';
             },
+
             openImageModal() {
                 this.imageZoomed = !this.imageZoomed;
             },
+
             async fetchProduct() {
                 this.loading = true;
                 this.error = null;
@@ -357,6 +363,7 @@
                     this.loading = false;
                 }
             },
+
             async fetchCart() {
                 if (!this.product || !this.product.id) {
                     this.order = [];
@@ -379,14 +386,11 @@
                     });
                     
                     this.order = Array.isArray(response.data) ? response.data : [];
-                    console.log('this.order', this.order);
 
                     if(this.order.length > 0) {
                         this.orderNumber = this.order.find((f) => f.order_status === 'Pending').order_number;
-                        console.log('this.orderNumber', this.orderNumber);
                     }
 
-                    // Find the order item that matches this product
                     const orderItem = this.order.find(item => 
                         item.product_id === this.product.id || 
                         (item.product_code && item.product_code === this.product.product_code)
@@ -426,7 +430,6 @@
             },
 
             addToCart(product) {
-                console.log('addToCart', this.orderNumber);
                 const user = JSON.parse(localStorage.getItem('user'));
                 if (!user) {
                     alert('Please log in first');
@@ -566,7 +569,8 @@
                     })
                     .finally(() => {
                         this.updatingQuantity = false;
-                    });
+                    }
+                );
             },
 
             submitRating() {
@@ -615,9 +619,11 @@
                     })
                     .finally(() => {
                         this.submittingRating = false;
-                    });
+                    }
+                );
             },
         },
+
         async mounted() {
             await this.fetchProduct();
             if (this.product && this.product.id) {
@@ -625,6 +631,7 @@
                 this.getProductRatingData();
             }
         },
+
         watch: {
             '$route.params.id'() {
                 this.id = this.$route.params.id;

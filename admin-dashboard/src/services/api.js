@@ -251,6 +251,18 @@ export const getDashboardStats = async () => {
     }
 };
 
+export const getChartData = async (type = 'day', period = '30') => {
+    try {
+        const response = await api.get('/api/dashboard/charts', {
+            params: { type, period }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching chart data:', error);
+        throw error;
+    }
+};
+
 // Orders API
 export const getOrders = async () => {
     try {

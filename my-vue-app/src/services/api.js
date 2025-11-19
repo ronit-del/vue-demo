@@ -397,3 +397,14 @@ export const getProductByCode = async (product_code) => {
         throw error;
     }
 };
+
+// Get user orders
+export const getUserOrders = async (user_id) => {
+    try {
+        const response = await api.get(`/api/customers/${user_id}/orders`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching user orders:', error);
+        throw error;
+    }
+};

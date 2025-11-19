@@ -4,17 +4,22 @@
       <div class="header-content">
         <div class="header-info">
           <button class="btn-back" @click="$router.push('/orders')">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 16L6 10L12 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            <div class="dflex">
+              <div>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 16L6 10L12 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </div>
+              <div>
+                <span>
+                  Back to Order(s) List
+                </span>
+              </div>
+            </div>
           </button>
-          <div>
-            <h1 class="page-title">Edit Order</h1>
-            <p class="page-subtitle">Order: {{ order.order_number || 'Loading...' }}</p>
-          </div>
         </div>
         <div class="header-actions">
-          <button class="btn btn-secondary" @click="$router.push(`/orders/${order.id}`)">
+          <button class="btn btn-primary" @click="$router.push(`/orders/${order.id}`)">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M1 9C1 9 4 4 9 4C14 4 17 9 17 9C17 9 14 14 9 14C4 14 1 9 1 9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               <path d="M9 11C10.1046 11 11 10.1046 11 9C11 7.89543 10.1046 7 9 7C7.89543 7 7 7.89543 7 9C7 10.1046 7.89543 11 9 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -68,6 +73,7 @@
                 v-model="formData.status" 
                 class="form-select"
                 required
+                @change="handleStatusChange"
               >
                 <!-- <option value="Pending">Pending</option> -->
                 <option value="Processing">Processing</option>
@@ -76,6 +82,19 @@
                 <option value="Cancelled">Cancelled</option>
                 <option value="Refunded">Refunded</option>
               </select>
+            </div>
+
+            <!-- Cancellation Reason (shown only when status is Cancelled) -->
+            <div class="form-group" v-if="formData.status === 'Cancelled'">
+              <label class="form-label">Cancellation Reason <span class="required">*</span></label>
+              <textarea 
+                v-model="formData.cancellation_reason" 
+                class="form-textarea"
+                rows="4"
+                placeholder="Please provide a reason for cancelling this order..."
+                required
+              ></textarea>
+              <p class="form-hint">This reason will be sent to the customer via email and displayed on the tracking page.</p>
             </div>
 
             <div class="form-group">
@@ -95,11 +114,12 @@
               <label class="form-label">Total Amount</label>
               <input 
                 type="number" 
-                v-model.number="formData.total" 
+                v-model="formData.total" 
                 class="form-input"
                 step="0.01"
                 min="0"
                 required
+                disabled
               />
             </div>
           </div>
@@ -214,7 +234,7 @@
                 </div>
               </div>
               <div class="item-image">
-                <img :src="getImageUrl(item.product_image)" alt="Product Image">
+                <img :src="item.product_image" alt="Product Image">
               </div>
               <div class="item-total">
                 ${{ formatCurrency(item.total_amount) }}
@@ -269,6 +289,7 @@ export default {
         status: 'Processing',
         payment_type: '',
         total: 0,
+        cancellation_reason: '',
         customer: '',
         customer_email: '',
         customer_phone: '',
@@ -282,17 +303,8 @@ export default {
       error: null
     }
   },
+
   methods: {
-    getImageUrl(imagePath) {
-      if (!imagePath) return '';
-      // If image path is relative, construct full URL
-      if (imagePath.startsWith('http')) {
-        return imagePath;
-      }
-      // For relative paths, assume they're in the public folder or assets
-      const baseURL = process.env.VUE_APP_FRONTEND_URL || 'http://192.168.0.111:8080';
-      return `${baseURL}/${imagePath}`;
-    },
     async fetchOrder() {
       this.loading = true;
       this.error = null;
@@ -306,6 +318,7 @@ export default {
             status: response.data.status || 'Processing',
             payment_type: response.data.payment_type || '',
             total: response.data.total || 0,
+            cancellation_reason: response.data.cancellation_reason || '',
             customer: response.data.customer || '',
             customer_email: response.data.customer_email || '',
             customer_phone: response.data.customer_phone || '',
@@ -327,6 +340,7 @@ export default {
         this.loading = false;
       }
     },
+
     setSampleData() {
       const orderId = this.$route.params.id;
       this.order = {
@@ -347,17 +361,38 @@ export default {
       };
       this.formData = { ...this.order };
     },
+
+    handleStatusChange() {
+      // Clear cancellation reason if status is not Cancelled
+      if (this.formData.status !== 'Cancelled') {
+        this.formData.cancellation_reason = '';
+      }
+    },
+
     async handleSubmit() {
+      // Validate cancellation reason if status is Cancelled
+      if (this.formData.status === 'Cancelled' && !this.formData.cancellation_reason?.trim()) {
+        this.error = 'Please provide a cancellation reason';
+        return;
+      }
+
       this.saving = true;
       this.error = null;
       
       try {
         const orderId = this.$route.params.id;
-        const response = await updateOrder(orderId, {
+        const updateData = {
           status: this.formData.status,
           payment_type: this.formData.payment_type,
           total: this.formData.total
-        });
+        };
+
+        // Include cancellation reason if status is Cancelled
+        if (this.formData.status === 'Cancelled') {
+          updateData.cancellation_reason = this.formData.cancellation_reason;
+        }
+
+        const response = await updateOrder(orderId, updateData);
         
         if (response.success) {
           // Show success message and redirect
@@ -376,13 +411,16 @@ export default {
         this.saving = false;
       }
     },
+
     formatCurrency(value) {
       return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
     }
   },
+
   created() {
     this.fetchOrder();
   },
+
   watch: {
     '$route.params.id'() {
       this.fetchOrder();
@@ -414,21 +452,6 @@ export default {
   display: flex;
   align-items: center;
   gap: 1rem;
-}
-
-.btn-back {
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: all 0.2s ease;
-  flex-shrink: 0;
 }
 
 .btn-back:hover {
@@ -621,6 +644,13 @@ export default {
 .form-textarea {
   resize: vertical;
   min-height: 80px;
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+  font-style: italic;
 }
 
 .form-row {
