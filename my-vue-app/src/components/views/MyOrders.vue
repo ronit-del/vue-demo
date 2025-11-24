@@ -87,7 +87,15 @@
                             (${{ formatCurrency(getOrderTax(order)) }})
                         </td>
                         <td class="order-total-cell">
-                            <strong>${{ formatCurrency(order.total) }}</strong>
+                            <strong>
+                                ${{ 
+                                    (
+                                        Number(formatCurrency(order.total)) 
+                                        + 
+                                        Number(formatCurrency(getOrderTax(order)))
+                                    ).toFixed(2) 
+                                }}
+                            </strong>
                         </td>
                         <td class="order-actions-cell">
                             <router-link :to="`/track-order/${order.order_number}`" class="btn-table" @click="openInNewTab(order)">

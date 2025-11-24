@@ -1,6 +1,5 @@
 <template>
   <div class="customer-page">
-
     <div class="stats-bar">
       <div class="stat-item">
         <span class="stat-label">Total Customers</span>
@@ -80,7 +79,9 @@
                     <path d="M17 19V17C17 15.9391 17.4214 14.9217 18.1716 14.1716C18.9217 13.4214 19.9391 13 21 13H27C28.0609 13 29.0783 13.4214 29.8284 14.1716C30.5786 14.9217 31 15.9391 31 17V19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     <path d="M24 29C26.2091 29 28 27.2091 28 25C28 22.7909 26.2091 21 24 21C21.7909 21 20 22.7909 20 25C20 27.2091 21.7909 29 24 29Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
-                  <p>No customers found</p>
+                  <p>
+                    No customers found
+                  </p>
                 </div>
               </td>
             </tr>
@@ -323,6 +324,7 @@ export default {
 
     activeTab() {
       this.currentPage = 1;
+      this.searchQuery = '';
     },
 
     filteredCustomers() {

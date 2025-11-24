@@ -393,6 +393,7 @@ export default {
     activeTab() {
       this.currentPage = 1;
       this.statusFilter = '';
+      this.searchQuery = '';
     },
 
     filteredOrders() {

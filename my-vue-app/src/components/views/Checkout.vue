@@ -458,7 +458,6 @@
 
 <script>
 import { COUNTRIES, createStripe, deleteOrderRecord, getOrderData, updateOrderRecord, updateProfile } from '../../services/api';
-// import productData from '../../constant.json';
 import { loadStripe } from '@stripe/stripe-js';
 import { trackOrderPlaced, trackOrderAttempt, trackOrderFailure } from '../../services/tracking';
 
